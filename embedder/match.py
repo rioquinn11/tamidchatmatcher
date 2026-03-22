@@ -11,10 +11,6 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
 
-if not all([SUPABASE_URL, SUPABASE_KEY]):
-    print("Error: Missing SUPABASE_URL or SUPABASE_SECRET_KEY in .env")
-    sys.exit(1)
-
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 TARGET = "Rio Quinn"
