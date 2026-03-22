@@ -17,3 +17,7 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

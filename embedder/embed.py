@@ -1,3 +1,5 @@
+"""Embed member bios from a JSON file and upsert them into Supabase as vector embeddings."""
+
 import sys
 import json
 import os
