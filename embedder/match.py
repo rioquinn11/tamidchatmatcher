@@ -10,10 +10,14 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
+if SUPABASE_URL is None:
+    raise RuntimeError("SUPABASE_URL must be set in the environment.")
+if SUPABASE_KEY is None:
+    raise RuntimeError("SUPABASE_SECRET_KEY must be set in the environment.")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-TARGET = "Rio Quinn"
+TARGET = "Shaurya Dubey"
 
 
 def dot_product(a: list[float], b: list[float]) -> float:
