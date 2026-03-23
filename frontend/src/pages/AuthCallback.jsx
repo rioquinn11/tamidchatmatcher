@@ -11,17 +11,15 @@ export default function AuthCallback() {
     handled.current = true;
 
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('Auth callback error:', error.message);
-        navigate('/login');
-        return;
-      }
       if (session) {
         localStorage.setItem('token', session.access_token);
-        navigate('/dashboard');
-      } else {
-        navigate('/login');
+        navigate('/dashboard', { replace: true });
+        return;
       }
+      if (error) {
+        console.error('Auth callback error:', error.message);
+      }
+      navigate('/login', { replace: true });
     });
   }, [navigate]);
 
