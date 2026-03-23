@@ -50,7 +50,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
 const styles = {
   page: {
     minHeight: '100vh',
@@ -123,3 +122,4 @@ const styles = {
     color: '#94a3b8',
   },
 };
+
