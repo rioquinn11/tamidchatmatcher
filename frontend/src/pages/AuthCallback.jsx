@@ -32,7 +32,6 @@ export default function AuthCallback() {
     </div>
   );
 }
-
 const styles = {
   page: {
     minHeight: '100vh',
@@ -56,3 +55,4 @@ const styles = {
     fontSize: '15px',
   },
 };
+
