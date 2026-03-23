@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const GRID_ITEMS = [
   { label: 'My Matches' },
@@ -21,9 +22,18 @@ const GRID_ITEMS = [
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) {
+        console.error('Sign out error:', error.message);
+      }
+    } catch (err) {
+      console.error('Unexpected sign out error:', err);
+    }
     localStorage.removeItem('token');
-    navigate('/login');
+    navigate('/login', { replace: true });
+    window.location.replace('/login');
   };
 
   return (
