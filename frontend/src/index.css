@@ -19,3 +19,18 @@
     min-height: 100vh;
   }
 }
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.card-animate-in {
+  animation: card-enter 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}

@@ -15,7 +15,7 @@ export default function Login() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate('/dashboard', { replace: true });
+        navigate('/matches', { replace: true });
       }
     });
   }, [navigate]);

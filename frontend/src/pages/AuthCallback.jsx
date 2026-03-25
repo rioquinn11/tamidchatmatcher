@@ -13,7 +13,7 @@ export default function AuthCallback() {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (session) {
         localStorage.setItem('token', session.access_token);
-        navigate('/dashboard', { replace: true });
+        navigate('/matches', { replace: true });
         return;
       }
       if (error) {

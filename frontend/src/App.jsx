@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
 import AuthCallback from './pages/AuthCallback';
+import MatchDiscovery from './pages/MatchDiscovery';
 
 function PrivateRoute({ children }) {
   const [session, setSession] = useState(undefined);
@@ -34,10 +34,10 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
-          path="/dashboard"
+          path="/matches"
           element={
             <PrivateRoute>
-              <Dashboard />
+              <MatchDiscovery />
             </PrivateRoute>
           }
         />

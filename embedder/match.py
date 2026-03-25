@@ -18,7 +18,7 @@ if SUPABASE_KEY is None:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-TARGET = "Shaurya Dubey"
+TARGET = "Kyle Shibata"
 
 
 def dot_product(a: list[float], b: list[float]) -> float:

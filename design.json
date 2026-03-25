@@ -1,0 +1,404 @@
+{
+  "meta": {
+    "name": "Soft Blue Auth UI System",
+    "version": "1.0.0",
+    "intent": "Creative-direction-level design system distilled from the provided login screenshot so AI can reproduce the same visual language consistently.",
+    "source": "Single reference screenshot provided by user",
+    "design_style_keywords": [
+      "clean",
+      "airy",
+      "friendly",
+      "minimal",
+      "soft geometric",
+      "corporate SaaS",
+      "lightweight"
+    ],
+    "confidence_notes": [
+      "Color values and spacing are inferred from screenshot and normalized into reusable tokens.",
+      "Brand font is approximated; use modern geometric sans with soft curves."
+    ]
+  },
+  "principles": {
+    "visual_hierarchy": [
+      "Primary emphasis: centered auth card and Sign In button.",
+      "Secondary emphasis: logo lockup and field labels.",
+      "Tertiary emphasis: helper links and decorative background shapes."
+    ],
+    "composition": [
+      "Use a strong centered focal point on a wide white canvas.",
+      "Frame the focal point with large organic blue blobs pushed toward left/right edges.",
+      "Keep generous negative space around the card so the interface feels breathable."
+    ],
+    "tone": [
+      "Professional but approachable.",
+      "Calm and low-friction, avoiding harsh contrast except for key call-to-action text.",
+      "Playful geometry in background, strict alignment in card content."
+    ],
+    "consistency_rules": [
+      "Keep corners rounded across all interactive elements.",
+      "Prefer soft shadows and low-opacity accents over heavy borders.",
+      "Use sentence case for labels and all caps only for primary CTA text."
+    ]
+  },
+  "foundations": {
+    "layout": {
+      "canvas": {
+        "background": "#FFFFFF",
+        "min_viewport": "1366x768",
+        "safe_area_padding": 48
+      },
+      "content_alignment": {
+        "primary_axis": "horizontal-center",
+        "secondary_axis": "vertical-center",
+        "max_content_width": 1200
+      },
+      "z_index_layers": {
+        "background_decor": 0,
+        "ambient_rings_and_dots": 1,
+        "auth_card": 10
+      }
+    },
+    "spacing_scale": {
+      "unit": 4,
+      "tokens": {
+        "xxs": 4,
+        "xs": 8,
+        "sm": 12,
+        "md": 16,
+        "lg": 24,
+        "xl": 32,
+        "2xl": 40,
+        "3xl": 48
+      },
+      "usage_notes": [
+        "Use 8px and 12px for field-level spacing.",
+        "Use 24px to 40px for card internals and section gaps."
+      ]
+    },
+    "color": {
+      "neutrals": {
+        "white": "#FFFFFF",
+        "surface_soft": "#FBFDFF",
+        "border_soft": "#E9EEF5",
+        "text_primary": "#2E323A",
+        "text_secondary": "#858B96",
+        "text_muted": "#A6ACB7"
+      },
+      "brand_blues": {
+        "blue_100": "#E8F6FF",
+        "blue_200": "#D6EEFF",
+        "blue_300": "#BDE3FF",
+        "blue_400": "#97D3FF",
+        "blue_500": "#7BC4FF",
+        "blue_600": "#67B5F6",
+        "blue_700": "#4C9BEA"
+      },
+      "semantic": {
+        "primary_cta_start": "#8DCAFF",
+        "primary_cta_end": "#74B8F3",
+        "focus_ring": "#A7D8FF",
+        "input_border_default": "#E8EDF3",
+        "input_border_focus": "#9BCFFF",
+        "link_default": "#7C8290",
+        "link_hover": "#4C9BEA"
+      },
+      "decorative_opacity_guidelines": {
+        "background_blob": 0.65,
+        "ring_outline": 0.2,
+        "small_shape": 0.35
+      }
+    },
+    "typography": {
+      "font_families": {
+        "primary": [
+          "Poppins",
+          "Inter",
+          "Segoe UI",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif"
+        ],
+        "brand_logotype_fallback": [
+          "Poppins",
+          "Montserrat",
+          "Inter",
+          "sans-serif"
+        ]
+      },
+      "weights": {
+        "regular": 400,
+        "medium": 500,
+        "semibold": 600,
+        "bold": 700
+      },
+      "type_scale": {
+        "caption": { "size": 12, "line_height": 16, "weight": 500 },
+        "label": { "size": 14, "line_height": 18, "weight": 600 },
+        "body": { "size": 14, "line_height": 20, "weight": 400 },
+        "button": { "size": 24, "line_height": 24, "weight": 700, "tracking": 1.2 },
+        "brand_wordmark": { "size": 60, "line_height": 56, "weight": 700, "tracking": -0.5 },
+        "brand_tagline": { "size": 28, "line_height": 28, "weight": 500, "tracking": 0.2 }
+      },
+      "case_rules": {
+        "labels": "title_or_sentence_case",
+        "cta": "uppercase",
+        "helper_links": "sentence_case"
+      }
+    },
+    "shape_language": {
+      "radius": {
+        "input": 2,
+        "button_pill": 999,
+        "card": 12,
+        "decorative_square": 0
+      },
+      "geometry_mix": [
+        "Organic blobs for large background masses.",
+        "Simple circles/rings and rotated squares for accents.",
+        "Rectilinear forms for card and form controls."
+      ]
+    },
+    "elevation": {
+      "card_shadow": "0 12px 40px rgba(15, 38, 72, 0.08)",
+      "ambient_glow": "0 0 0 rgba(0,0,0,0)",
+      "interactive_shadow_policy": "No heavy hover shadows; keep interactions subtle."
+    },
+    "motion": {
+      "duration_fast_ms": 140,
+      "duration_normal_ms": 220,
+      "easing": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+      "micro_interactions": [
+        "Inputs: border-color + soft focus glow only.",
+        "CTA button: slight brightness increase on hover (2-4%).",
+        "Links/icons: fade or tint shifts, no bounce effects."
+      ]
+    }
+  },
+  "components": {
+    "page_auth_landing": {
+      "role": "Top-level auth screen composition",
+      "anatomy": [
+        "full-viewport white backdrop",
+        "left and right oversized blue organic shapes",
+        "ambient rings/dots/squares",
+        "centered auth card"
+      ],
+      "spacing": {
+        "viewport_padding": 40,
+        "card_to_decor_min_gap": 24
+      },
+      "responsive_behavior": [
+        "On smaller screens, reduce decorative shapes first before shrinking card internals.",
+        "Preserve centered card alignment at all breakpoints."
+      ]
+    },
+    "background_decor_system": {
+      "role": "Brand mood and framing only; not informational",
+      "elements": {
+        "blob_left_bottom": {
+          "fill": "#8ED3FF",
+          "opacity": 0.75,
+          "approx_size": "420x300",
+          "placement": "bleeds off lower-left canvas edge"
+        },
+        "blob_right_center": {
+          "fill": "#8ACFFF",
+          "opacity": 0.7,
+          "approx_size": "460x220",
+          "placement": "bleeds from right edge, vertically centered near card middle"
+        },
+        "rings": {
+          "stroke": "#CDEBFF",
+          "stroke_width": 6,
+          "opacity": 0.35
+        },
+        "micro_shapes": {
+          "types": ["circle", "diamond"],
+          "fill": "#BFE6FF",
+          "opacity_range": [0.25, 0.5]
+        }
+      }
+    },
+    "card_auth": {
+      "role": "Primary form container",
+      "style": {
+        "background": "#FFFFFF",
+        "border": "1px solid #F2F4F8",
+        "radius": 12,
+        "shadow": "0 12px 40px rgba(15, 38, 72, 0.08)",
+        "width": 420,
+        "min_height": 500,
+        "padding": {
+          "top": 44,
+          "right": 44,
+          "bottom": 40,
+          "left": 44
+        }
+      },
+      "layout": {
+        "content_stack_gap": 14,
+        "form_gap": 16
+      }
+    },
+    "brand_lockup": {
+      "role": "Visual identity at top of card",
+      "anatomy": [
+        "wordmark (bold)",
+        "subline/tagline (lighter, smaller)"
+      ],
+      "alignment": "left",
+      "style": {
+        "wordmark_color": "#2E323A",
+        "tagline_color": "#8E94A0",
+        "gap_vertical": 2
+      },
+      "guidelines": [
+        "Keep lockup compact and left-aligned with form fields.",
+        "Do not overpower the CTA; logo is identity, not conversion action."
+      ]
+    },
+    "form_field": {
+      "role": "Reusable labeled input block",
+      "structure": [
+        "label",
+        "input frame",
+        "optional inline icon/action"
+      ],
+      "spacing": {
+        "label_to_input": 8,
+        "field_to_field": 14
+      }
+    },
+    "label": {
+      "style": {
+        "font": "primary",
+        "size": 14,
+        "weight": 600,
+        "color": "#656D79",
+        "letter_spacing": 0
+      }
+    },
+    "input_text": {
+      "style": {
+        "height": 44,
+        "padding_x": 12,
+        "background": "#FFFFFF",
+        "border": "1px solid #E8EDF3",
+        "radius": 2,
+        "text_color": "#2E323A",
+        "placeholder_color": "#B0B6C0"
+      },
+      "states": {
+        "default": {
+          "border_color": "#E8EDF3"
+        },
+        "hover": {
+          "border_color": "#DCE5EF"
+        },
+        "focus": {
+          "border_color": "#9BCFFF",
+          "ring": "0 0 0 3px rgba(151, 211, 255, 0.22)"
+        },
+        "error": {
+          "border_color": "#E38181",
+          "ring": "0 0 0 3px rgba(227, 129, 129, 0.18)"
+        },
+        "disabled": {
+          "background": "#F6F8FB",
+          "text_color": "#B7BDC8",
+          "border_color": "#ECF0F5"
+        }
+      }
+    },
+    "input_password_visibility_icon": {
+      "role": "Tertiary action icon inside password field",
+      "placement": "right-inside input frame",
+      "style": {
+        "size": 16,
+        "color": "#C4CAD4",
+        "hover_color": "#8C95A4"
+      }
+    },
+    "link_forgot_password": {
+      "role": "Low-emphasis recovery action",
+      "style": {
+        "font_size": 14,
+        "weight": 500,
+        "color": "#8A909B",
+        "alignment": "right"
+      },
+      "states": {
+        "hover": { "color": "#4C9BEA" },
+        "focus": { "underline": true }
+      }
+    },
+    "button_primary": {
+      "role": "Main conversion action",
+      "content": {
+        "text_case": "uppercase",
+        "label_example": "SIGN IN"
+      },
+      "style": {
+        "height": 46,
+        "padding_x": 20,
+        "radius": 999,
+        "text_color": "#FFFFFF",
+        "font_size": 24,
+        "font_weight": 700,
+        "tracking": 1.2,
+        "background": "linear-gradient(90deg, #8DCAFF 0%, #74B8F3 100%)"
+      },
+      "states": {
+        "default": {
+          "opacity": 1
+        },
+        "hover": {
+          "brightness": 1.03
+        },
+        "active": {
+          "brightness": 0.98
+        },
+        "disabled": {
+          "opacity": 0.55
+        }
+      }
+    }
+  },
+  "accessibility_guidelines": {
+    "contrast_targets": [
+      "Body and labels should meet WCAG AA (4.5:1) against white surfaces.",
+      "Primary CTA text must remain >= 4.5:1 against the light-blue gradient."
+    ],
+    "focus_visibility": [
+      "Every interactive control requires a visible focus ring.",
+      "Do not rely on color-only indicators for validation states."
+    ],
+    "touch_targets": [
+      "Minimum interactive height: 44px.",
+      "Preferred touch target for mobile: 48px."
+    ]
+  },
+  "implementation_recipes_for_ai": {
+    "page_build_order": [
+      "Create full-viewport white wrapper.",
+      "Place decorative blobs and rings in absolute layers with low opacity.",
+      "Center auth card with fixed max width.",
+      "Stack brand lockup, fields, utility link, and primary CTA with conservative spacing."
+    ],
+    "dos": [
+      "Use soft blue accents sparingly to preserve calm visual tone.",
+      "Keep card content left-aligned and highly legible.",
+      "Preserve generous whitespace around and inside card."
+    ],
+    "donts": [
+      "Do not use saturated neon blues.",
+      "Do not add heavy dark shadows or high-contrast borders.",
+      "Do not center-align all text inside card; only center CTA label."
+    ],
+    "fallback_if_assets_missing": [
+      "Approximate blobs via CSS border-radius organic shapes and rotation.",
+      "Use simple outlined circles and small rotated squares as ambient accents.",
+      "If brand logo is unavailable, render textual lockup only."
+    ]
+  }
+}
