@@ -60,7 +60,7 @@ def login():
         return jsonify({"detail": "Invalid email or password"}), 401
 
     supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_KEY")
+    supabase_key = os.getenv("SUPABASE__PUBLISHABLEKEY")
 
     if supabase_url and supabase_key:
         from supabase import create_client
