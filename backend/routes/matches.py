@@ -35,7 +35,7 @@ def get_matches():
 
     try:
         sb = create_client(SUPABASE_URL, SUPABASE_KEY)
-        resp = sb.table("profiles").select("*").execute()
+        resp = sb.table("combined").select("*").execute()
         all_rows = resp.data
     except Exception as exc:
         return jsonify({"error": f"Supabase request failed: {exc}"}), 500

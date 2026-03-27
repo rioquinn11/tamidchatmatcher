@@ -36,24 +36,28 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 TABLE = "combined"
 # Rows per Supabase fetch (pagination only; full table is still processed).
 PAGE_SIZE = 500
+DRY_RUN = False
 
-# Order matches user spec; null/empty values omitted from the joined string.
-PROFESSIONAL_COLUMNS: list[str] = [
-    "company_name",
-    "coop_name",
-    "post_college_job",
-    "industry",
-    "location",
-    "major",
-    "minor",
-    "skills_tags",
-    "tamid_class",
-    "track_involvement",
-    "hometown",
-    "e_board_positions",
-    "professional_experience",
-    "tamid_position",
-]
+COLUMN_TEMPLATES: dict[str, str] = {
+    "major":                     "This members's major is {}",
+    "minor":                     "and their minor is {}.",
+    "industry":                  "They are primarily involved in the {} industry.",
+    "company_name":              "They have worked at {} as a job/internship.",
+    "coop_name":                 "For their coop, they worked at {}.",
+    #"post_college_job":          "After college they worked as {}",
+    #"location":                  "They are located in {}",
+    "tamid_class":               "They are a member of {} class",
+    "track_involvement":         "and are currently a part of the {} track",
+    "tamid_position":            ".Their current position is {}",
+    "e_board_positions":         "but in the past they held the executive positions of {}",
+    #"professional_experience":   "Their professional experience includes {}",
+    "skills_tags":               "Their skills include {}",
+    "hometown":                  "Their hometown is {}",
+}
+
+PROFESSIONAL_COLUMNS: list[str] = list(COLUMN_TEMPLATES.keys())
+
+RAW_COLUMNS: set[str] = {"hometown"}
 
 
 def get_embedding(text: str) -> list[float]:
@@ -73,16 +77,36 @@ def is_graduated_truthy(row: dict) -> bool:
     return False
 
 
+def _natural_list(raw: str) -> str:
+    """Turn a comma-separated string into a natural English list.
+
+    'A'         -> 'A'
+    'A, B'      -> 'A and B'
+    'A, B, C'   -> 'A, B, and C'
+    """
+    items = [i.strip() for i in raw.split(",") if i.strip()]
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f"{items[0]} and {items[1]}"
+    return ", ".join(items[:-1]) + ", and " + items[-1]
+
+
 def build_professional_text(row: dict) -> str:
-    parts: list[str] = []
+    sentences: list[str] = []
     for col in PROFESSIONAL_COLUMNS:
         val = row.get(col)
         if val is None:
             continue
         s = str(val).strip()
-        if s:
-            parts.append(s)
-    return ", ".join(parts)
+        if not s:
+            continue
+        template = COLUMN_TEMPLATES[col]
+        formatted = s if col in RAW_COLUMNS else _natural_list(s)
+        sentences.append(template.format(formatted))
+    return " ".join(sentences)
 
 
 def select_columns_expr() -> str:
@@ -162,22 +186,23 @@ def main() -> None:
             rid = row["id"]
             email = row.get("northeastern_email") or ""
             embed_index += 1
-            print(f"[{embed_index}] id={rid}\temail={email}")
+            print(f"\n\n[{embed_index}] id={rid}\temail={email}")
             print(text)
 
-            try:
-                emb = get_embedding(text)
-            except Exception as e:
-                print(f"  OpenAI error for {rid}: {e}", file=sys.stderr)
-                failed += 1
-                continue
+            if not DRY_RUN:
+                try:
+                    emb = get_embedding(text)
+                except Exception as e:
+                    print(f"  OpenAI error for {rid}: {e}", file=sys.stderr)
+                    failed += 1
+                    continue
 
-            try:
-                update_professional_embedding(rid, emb)
-            except Exception as e:
-                print(f"  Supabase update error for {rid}: {e}", file=sys.stderr)
-                failed += 1
-                continue
+                try:
+                    update_professional_embedding(rid, emb)
+                except Exception as e:
+                    print(f"  Supabase update error for {rid}: {e}", file=sys.stderr)
+                    failed += 1
+                    continue
 
             embedded += 1
 

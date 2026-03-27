@@ -13,7 +13,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-TARGET = "Kyle Shibata"
+TARGET = "Dang Nguyen"
 
 
 
@@ -23,7 +23,7 @@ def weights(a: list[float], b: list[float]) -> float:
     #b = [0 if -0.05 < x < 0.05 else x for x in b]
 
 
-    return sum( (ai * bi) for ai, bi in zip(a, b))
+    return sum( (ai * bi)**2 for ai, bi in zip(a, b))
 
 
 def main():
