@@ -3,4 +3,5 @@ flask-cors==5.0.0
 python-jose[cryptography]==3.3.0
 python-dotenv==1.0.1
 requests>=2.31.0
-supabase==2.11.0
+supabase>=2.15.0
+openai>=1.0.0

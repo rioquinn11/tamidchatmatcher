@@ -8,16 +8,24 @@ function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-const HIDDEN_FIELDS_EXACT = new Set(['embedding', 'id', 'created_at', 'updated_at', 'name', 'score', 'email']);
-const HIDDEN_FIELDS_PATTERNS = ['co-op', 'co_op', 'coop', 'instagram', 'linkedin', 'picture', 'photo', 'image', 'avatar', 'headshot'];
+const HIDDEN_FIELDS_EXACT = new Set(['embedding', 'professional_embedding', 'id', 'created_at', 'updated_at', 'name', 'score', 'email']);
+const HIDDEN_FIELDS_PATTERNS = ['co-op', 'co_op', 'coop', 'instagram', 'linkedin'];
+const PHOTO_PATTERNS = ['picture', 'photo', 'image', 'avatar', 'headshot'];
 
 function isHiddenField(key) {
   if (HIDDEN_FIELDS_EXACT.has(key)) return true;
   const lower = key.toLowerCase();
+  if (PHOTO_PATTERNS.some(p => lower.includes(p))) return true;
   return HIDDEN_FIELDS_PATTERNS.some(p => lower.includes(p));
 }
-const MEDAL_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32'];
-const MEDAL_LABELS = ['1st', '2nd', '3rd'];
+
+function findPhotoField(obj) {
+  const entry = Object.entries(obj).find(([k, v]) =>
+    PHOTO_PATTERNS.some(p => k.toLowerCase().includes(p)) &&
+    typeof v === 'string' && v.startsWith('http')
+  );
+  return entry?.[1] || null;
+}
 
 function formatFieldLabel(key) {
   return key.replace(/[_?]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
@@ -53,6 +61,14 @@ export default function MatchDiscovery() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
 
+  // search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null); // null = not searched yet
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
+  const [expandedQuery, setExpandedQuery] = useState('');
+  const sessionRef = useRef(null);
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (sidebarOpen && sidebarRef.current && !sidebarRef.current.contains(e.target)) {
@@ -72,6 +88,7 @@ export default function MatchDiscovery() {
         navigate('/login', { replace: true });
         return;
       }
+      sessionRef.current = session;
 
       const email = session.user.email.toLowerCase();
 
@@ -101,11 +118,55 @@ export default function MatchDiscovery() {
     return () => { cancelled = true; };
   }, [navigate]);
 
+  async function handleSearch(e) {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearchLoading(true);
+    setSearchError('');
+    setExpandedQuery('');
+
+    const session = sessionRef.current;
+    try {
+      const res = await fetch(`${API_BASE}/api/matches/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ query: searchQuery.trim(), limit: 5 }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setSearchError(data.error);
+        setSearchResults(null);
+      } else {
+        setSearchResults(data.matches ?? []);
+        setExpandedQuery(data.expanded ?? '');
+      }
+    } catch (err) {
+      setSearchError('Could not reach the server. Please try again later.');
+      setSearchResults(null);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function clearSearch() {
+    setSearchQuery('');
+    setSearchResults(null);
+    setSearchError('');
+    setExpandedQuery('');
+  }
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('token');
     navigate('/login', { replace: true });
   };
+
+  const activeMatches = searchResults !== null ? searchResults : matches;
+  const isSearchMode = searchResults !== null;
 
   return (
     <div className="relative min-h-screen bg-white">
@@ -185,44 +246,117 @@ export default function MatchDiscovery() {
 
       {/* ── Main content ── */}
       <main className="relative z-10 px-6 py-10 sm:px-10 lg:px-16">
+
+        {/* ── Search bar ── */}
+        <form onSubmit={handleSearch} className="mb-8">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-xl">
+              <svg
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6ACB7]"
+                width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by skills, industry, company, interests…"
+                className="w-full rounded-xl border border-[#E8EDF3] bg-white py-2.5 pl-10 pr-4 text-sm text-[#2E323A] shadow-sm placeholder:text-[#A6ACB7] focus:border-[#74B8F3] focus:outline-none focus:ring-2 focus:ring-[#74B8F3]/20"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={searchLoading || !searchQuery.trim()}
+              className="flex items-center gap-2 rounded-xl bg-[#4C9BEA] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#3A87D4] disabled:opacity-50"
+            >
+              {searchLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                </svg>
+              )}
+              Search
+            </button>
+            {isSearchMode && (
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="rounded-xl border border-[#E8EDF3] bg-white px-4 py-2.5 text-sm font-medium text-[#656D79] transition-colors hover:bg-[#F2F4F8]"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {expandedQuery && (
+            <p className="mt-2 text-xs text-[#A6ACB7]">
+              <span className="font-semibold">Interpreted as:</span> {expandedQuery}
+            </p>
+          )}
+        </form>
+
+        {/* ── Heading ── */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">
-            Your Top Matches
+            {isSearchMode ? 'Search Results' : 'Your Top Matches'}
           </h1>
-          {target && (
+          {!isSearchMode && target && (
             <p className="mt-1 text-sm text-[#858B96]">
               Showing the best chat partners for{' '}
               <span className="font-semibold text-[#2E323A]">{target}</span>
             </p>
           )}
+          {isSearchMode && (
+            <p className="mt-1 text-sm text-[#858B96]">
+              Top matches for{' '}
+              <span className="font-semibold text-[#2E323A]">"{searchQuery}"</span>
+            </p>
+          )}
         </div>
 
-        {/* loading */}
-        {loading && (
+        {/* loading (initial) */}
+        {loading && !isSearchMode && (
           <div className="flex flex-col items-center gap-3 py-24">
             <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#E8F6FF] border-t-[#74B8F3]" />
             <p className="text-sm text-[#858B96]">Finding your matches…</p>
           </div>
         )}
 
-        {/* error */}
-        {!loading && error && (
+        {/* search loading */}
+        {searchLoading && (
+          <div className="flex flex-col items-center gap-3 py-16">
+            <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#E8F6FF] border-t-[#74B8F3]" />
+            <p className="text-sm text-[#858B96]">Searching members…</p>
+          </div>
+        )}
+
+        {/* error (initial load) */}
+        {!loading && !isSearchMode && error && (
           <div className="mx-auto max-w-lg rounded-xl border border-[#E38181] bg-[#FFF3F3] px-6 py-4 text-center text-sm text-[#B65A5A]">
             {error}
           </div>
         )}
 
+        {/* search error */}
+        {searchError && (
+          <div className="mx-auto max-w-lg rounded-xl border border-[#E38181] bg-[#FFF3F3] px-6 py-4 text-center text-sm text-[#B65A5A]">
+            {searchError}
+          </div>
+        )}
+
         {/* empty */}
-        {!loading && !error && matches.length === 0 && (
+        {!loading && !searchLoading && !error && !searchError && activeMatches.length === 0 && (
           <p className="py-16 text-center text-sm text-[#858B96]">
-            No matches found yet. Check back once more members have joined!
+            {isSearchMode ? 'No members matched your search.' : 'No matches found yet. Check back once more members have joined!'}
           </p>
         )}
 
-        {/* match rows */}
-        {!loading && !error && matches.length > 0 && (
+        {/* match cards */}
+        {!loading && !searchLoading && !error && !searchError && activeMatches.length > 0 && (
           <div className="flex flex-col gap-5">
-            {matches.map((m, i) => {
+            {activeMatches.map((m, i) => {
               const fields = Object.entries(m).filter(
                 ([k, v]) => !isHiddenField(k) && v != null && v !== '',
               );
@@ -244,25 +378,42 @@ export default function MatchDiscovery() {
 
               const instagram = findField(m, 'instagram');
               const linkedin = findField(m, 'linkedin');
+              const photo = findPhotoField(m);
 
               return (
                 <article
-                  key={m.name}
+                  key={m.name ?? i}
                   className="card-animate-in w-full overflow-hidden rounded-xl border border-[#E8EDF3] bg-white shadow-[0_12px_40px_rgba(15,38,72,0.08)] transition-all duration-200 hover:scale-[1.015] hover:border-[#9BCFFF] hover:shadow-[0_16px_48px_rgba(15,38,72,0.12)]"
                   style={{ animationDelay: `${i * 80}ms`, animationFillMode: 'both' }}
                 >
                   <div className="flex flex-col sm:flex-row">
-                    {/* left: photo placeholder with name + socials overlaid */}
-                    <div className="relative flex h-56 w-full shrink-0 items-center justify-center bg-[#F0F8FF] sm:h-auto sm:min-h-[220px] sm:w-52">
-                      <div className="flex flex-col items-center gap-2 text-[#C8D5E0]">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" />
-                        </svg>
+                    {/* left: photo */}
+                    <div className="relative flex h-56 w-full shrink-0 items-center justify-center overflow-hidden bg-[#F0F8FF] sm:h-auto sm:min-h-[220px] sm:w-52">
+                      {photo ? (
+                        <img
+                          src={photo}
+                          alt={m.name ?? ''}
+                          className="h-full w-full object-cover"
+                          onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                        />
+                      ) : null}
+                      {/* fallback initials avatar */}
+                      <div
+                        className="flex h-full w-full flex-col items-center justify-center gap-2 text-[#C8D5E0]"
+                        style={{ display: photo ? 'none' : 'flex' }}
+                      >
+                        {m.name ? (
+                          <span className="text-3xl font-bold text-[#B0C8DD]">{getInitials(m.name)}</span>
+                        ) : (
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" />
+                          </svg>
+                        )}
                       </div>
 
                       {/* name + social icons overlay */}
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 px-4 pb-4">
-                        <p className="text-base font-bold leading-tight text-[#2E323A]">{m.name}</p>
+                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/30 to-transparent px-4 pb-4 pt-8">
+                        <p className="text-base font-bold leading-tight text-white drop-shadow">{m.name}</p>
                         <div className="flex items-center gap-1.5">
                           {instagram && (
                             <a
@@ -296,6 +447,13 @@ export default function MatchDiscovery() {
 
                     {/* right: organized details */}
                     <div className="flex min-w-0 flex-1 flex-col gap-5 p-6 sm:p-8">
+                      {isSearchMode && (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-[#EAF5FF] px-2.5 py-0.5 text-xs font-semibold text-[#4C9BEA]">
+                            Score: {m.score}
+                          </span>
+                        </div>
+                      )}
                       {personal.length > 0 && (
                         <FieldGroup title="Personal">
                           {personal.map(([key, val]) => (
