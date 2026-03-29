@@ -37,111 +37,43 @@ def _parse_embedding(raw):
     return raw
 
 
-# Words to strip from bucket filename keys before matching
-_NOISE_WORDS = {
-    "headshot", "photo", "pic", "picture", "img", "image", "original",
-    "screenshot", "avatar", "profile", "pfp", "head", "portrait",
-}
+def _build_bucket_index(sb) -> dict[str, str]:
+    """Return a map of base_filename -> full bucket filename.
 
-# Regex-like patterns that indicate a key is just a UUID or timestamp (not a name)
-def _is_junk_key(key: str) -> bool:
-    # Pure UUID / hex / numeric / screenshot timestamp patterns
-    import re
-    if re.fullmatch(r'[0-9a-f\-]{8,}', key):
-        return True
-    if re.match(r'screenshot \d', key):
-        return True
-    if re.match(r'(img|dsc\d*|dsc) [\d\s]+', key):
-        return True
-    return False
-
-
-def _clean_key(raw: str) -> str:
-    """Remove noise words, leaving only likely name tokens."""
-    words = [w for w in raw.split() if w not in _NOISE_WORDS]
-    return " ".join(words).strip()
-
-
-def _fetch_photo_map(sb) -> dict[str, str]:
-    """Return a dict mapping normalized name -> public photo URL.
-
-    Also pre-computes an 'ambiguous_keys' set for single-word keys that match
-    multiple DB members — those should not be used for matching.
+    Some files are stored as 'attachment:UUID:actual_name.jpg' in the bucket.
+    The 'picture' field in the DB only has 'actual_name.jpg', so we need this
+    index to find the real bucket path.
     """
     try:
         files = sb.storage.from_(PHOTO_BUCKET).list(options={"limit": 1000})
-        db_rows = sb.table("combined").select("name").execute()
     except Exception:
         return {}
-
-    db_first_names: dict[str, int] = {}
-    for r in (db_rows.data or []):
-        n = (r.get("name") or "").strip().lower()
-        if n:
-            first = n.split()[0]
-            db_first_names[first] = db_first_names.get(first, 0) + 1
-
-    photo_map: dict[str, str] = {}
+    index = {}
     for f in files:
-        filename = f.get("name", "")
+        full = f.get("name", "")
+        if not full:
+            continue
+        base = full.rsplit(":", 1)[-1]  # strips "attachment:UUID:" prefix if present
+        index[base] = full
+    return index
+
+
+def _photo_url(row: dict, bucket_index: dict) -> str | None:
+    """Build a public photo URL from the row's 'picture' field.
+
+    Tries each comma-separated filename and returns the first one that exists
+    in the bucket index.
+    """
+    raw = (row.get("picture") or "").strip()
+    if not raw:
+        return None
+    for candidate in raw.split(","):
+        filename = candidate.strip()
         if not filename:
             continue
-        display = filename.rsplit(":", 1)[-1] if filename.startswith("attachment:") else filename
-        name_part = display.rsplit("_-_", 1)[-1] if "_-_" in display else display
-        name_part = name_part.rsplit(".", 1)[0].replace("_", " ").lower().strip()
-        if not name_part or _is_junk_key(name_part):
-            continue
-        cleaned = _clean_key(name_part)
-        if not cleaned:
-            continue
-        # Skip single-word keys that match multiple DB members (ambiguous)
-        if len(cleaned.split()) == 1 and db_first_names.get(cleaned, 0) > 1:
-            continue
-        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{PHOTO_BUCKET}/{filename}"
-        photo_map[cleaned] = public_url
-    return photo_map
-
-
-def _ascii(s: str) -> str:
-    """Strip unicode accents for fuzzy matching (e.g. ç -> c)."""
-    import unicodedata
-    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().lower().strip()
-
-
-def _lookup_photo(name: str, photo_map: dict[str, str]) -> str | None:
-    if not name or not photo_map:
-        return None
-    key = name.lower().strip()
-    key_ascii = _ascii(name)
-    words = key.split()
-
-    for map_key, url in photo_map.items():
-        mk_ascii = _ascii(map_key)
-        mk_words = map_key.split()
-
-        # 1. Exact match (with and without unicode normalization)
-        if key == map_key or key_ascii == mk_ascii:
-            return url
-
-        # 2. All DB name words found in bucket key words
-        if words and set(words) <= set(mk_words):
-            return url
-
-        # 3. All bucket key words found in DB name (first-name-only bucket keys)
-        if mk_words and set(mk_words) <= set(words):
-            return url
-
-        # 4. First-name + initial match: "Alexa P" matches "Alexa Polanco"
-        if len(mk_words) == 2 and len(mk_words[1]) == 1:
-            if len(words) >= 2 and words[0] == mk_words[0] and words[-1].startswith(mk_words[1]):
-                return url
-
-        # 5. Prefix/typo tolerance: bucket key starts with DB name (handles extra trailing chars)
-        if len(mk_ascii) >= 6 and mk_ascii.startswith(key_ascii):
-            return url
-        if len(key_ascii) >= 6 and key_ascii.startswith(mk_ascii):
-            return url
-
+        if filename in bucket_index:
+            full = bucket_index[filename]
+            return f"{SUPABASE_URL}/storage/v1/object/public/{PHOTO_BUCKET}/{full}"
     return None
 
 
@@ -182,10 +114,9 @@ def get_matches():
         })
 
     target_vec = _parse_embedding(target_row["embedding"])
+    bucket_index = _build_bucket_index(sb)
 
-    photo_map = _fetch_photo_map(sb)
-
-    hidden = {"embedding", "id", "created_at", "updated_at", "score"}
+    hidden = {"embedding", "professional_embedding", "id", "created_at", "updated_at", "score"}
     matches = []
     for row in rows:
         if row.get(email_key, "").lower() == email:
@@ -194,9 +125,9 @@ def get_matches():
         score = _dot_product(target_vec, vec)
         profile = {k: v for k, v in row.items() if k not in hidden and v is not None}
         profile["score"] = round(score, 4)
-        photo_url = _lookup_photo(row.get("name", ""), photo_map)
-        if photo_url:
-            profile["photo_url"] = photo_url
+        url = _photo_url(row, bucket_index)
+        if url:
+            profile["photo_url"] = url
         matches.append(profile)
 
     matches.sort(key=lambda x: x["score"], reverse=True)
@@ -258,7 +189,7 @@ def search_matches():
     except Exception as exc:
         return jsonify({"error": f"Supabase request failed: {exc}"}), 500
 
-    photo_map = _fetch_photo_map(sb)
+    bucket_index = _build_bucket_index(sb)
 
     hidden = {"embedding", "professional_embedding", "id", "created_at", "updated_at", "score"}
     scores = []
@@ -270,9 +201,9 @@ def search_matches():
         score = _dot_product(query_vec, vec)
         profile = {k: v for k, v in row.items() if k not in hidden and v is not None}
         profile["score"] = round(score, 4)
-        photo_url = _lookup_photo(row.get("name", ""), photo_map)
-        if photo_url:
-            profile["photo_url"] = photo_url
+        url = _photo_url(row, bucket_index)
+        if url:
+            profile["photo_url"] = url
         scores.append(profile)
 
     scores.sort(key=lambda x: x["score"], reverse=True)
