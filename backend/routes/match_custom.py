@@ -3,8 +3,14 @@ from openai import OpenAI
 from supabase import create_client
 
 from .helpers import (
-    SUPABASE_URL, SUPABASE_KEY, OPENAI_API_KEY, PAGE_SIZE,
-    DISPLAY_COLUMNS, dot_product, parse_embedding,
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    OPENAI_API_KEY,
+    PAGE_SIZE,
+    DISPLAY_COLUMNS,
+    dot_product,
+    parse_embedding,
+    should_hide_alef_2026_classmate,
 )
 from .photos import build_bucket_index, photo_url
 
@@ -74,10 +80,20 @@ def search_matches():
     except Exception as exc:
         return jsonify({"error": f"Supabase request failed: {exc}"}), 500
 
+    viewer_email = str(body.get("email", "")).strip().lower()
+    viewer_tamid = None
+    if viewer_email:
+        for r in all_rows:
+            if str(r.get("northeastern_email", "")).lower() == viewer_email:
+                viewer_tamid = r.get("tamid_class")
+                break
+
     bucket_index = build_bucket_index(sb)
 
     scores = []
     for row in all_rows:
+        if should_hide_alef_2026_classmate(viewer_tamid, row.get("tamid_class")):
+            continue
         raw = row.get("professional_embedding")
         vec = parse_embedding(raw) if raw is not None else None
         if vec is None:

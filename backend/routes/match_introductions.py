@@ -1,7 +1,14 @@
 from flask import Blueprint, request, jsonify
 from supabase import create_client
 
-from .helpers import SUPABASE_URL, SUPABASE_KEY, DISPLAY_COLUMNS, dot_product, parse_embedding
+from .helpers import (
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    DISPLAY_COLUMNS,
+    dot_product,
+    parse_embedding,
+    should_hide_alef_2026_classmate,
+)
 from .photos import build_bucket_index, photo_url
 
 introductions_bp = Blueprint("introductions", __name__)
@@ -48,6 +55,10 @@ def get_matches():
     matches = []
     for row in rows:
         if str(row.get("northeastern_email", "")).lower() == email:
+            continue
+        if should_hide_alef_2026_classmate(
+            target_row.get("tamid_class"), row.get("tamid_class")
+        ):
             continue
         vec = parse_embedding(row["embedding"])
         score = dot_product(target_vec, vec)

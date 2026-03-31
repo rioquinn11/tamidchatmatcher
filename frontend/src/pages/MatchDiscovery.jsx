@@ -120,7 +120,13 @@ export default function MatchDiscovery() {
           'Content-Type': 'application/json',
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ query: searchQuery.trim(), limit: 10 }),
+        body: JSON.stringify({
+          query: searchQuery.trim(),
+          limit: 10,
+          ...(session?.user?.email
+            ? { email: session.user.email.toLowerCase() }
+            : {}),
+        }),
       });
       const data = await res.json();
       if (data.error) {
