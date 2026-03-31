@@ -8,16 +8,7 @@ function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-const HIDDEN_FIELDS_EXACT = new Set(['embedding', 'professional_embedding', 'id', 'created_at', 'updated_at', 'name', 'score', 'email']);
-const HIDDEN_FIELDS_PATTERNS = ['co-op', 'co_op', 'coop', 'instagram', 'linkedin'];
 const PHOTO_PATTERNS = ['picture', 'photo', 'image', 'avatar', 'headshot'];
-
-function isHiddenField(key) {
-  if (HIDDEN_FIELDS_EXACT.has(key)) return true;
-  const lower = key.toLowerCase();
-  if (PHOTO_PATTERNS.some(p => lower.includes(p))) return true;
-  return HIDDEN_FIELDS_PATTERNS.some(p => lower.includes(p));
-}
 
 function findPhotoField(obj) {
   const entry = Object.entries(obj).find(([k, v]) =>
@@ -33,11 +24,6 @@ function formatFieldLabel(key) {
 
 function isUrl(val) {
   return typeof val === 'string' && (val.startsWith('http://') || val.startsWith('https://'));
-}
-
-function findField(obj, pattern) {
-  const entry = Object.entries(obj).find(([k]) => k.toLowerCase().includes(pattern));
-  return entry?.[1] || null;
 }
 
 function formatPhone(val) {
@@ -134,7 +120,7 @@ export default function MatchDiscovery() {
           'Content-Type': 'application/json',
           ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: JSON.stringify({ query: searchQuery.trim(), limit: 5 }),
+        body: JSON.stringify({ query: searchQuery.trim(), limit: 10 }),
       });
       const data = await res.json();
       if (data.error) {
@@ -357,27 +343,18 @@ export default function MatchDiscovery() {
         {!loading && !searchLoading && !error && !searchError && activeMatches.length > 0 && (
           <div className="flex flex-col gap-5">
             {activeMatches.map((m, i) => {
+              const EXCLUDED_KEYS = new Set(['name', 'score', 'photo_url', 'instagram', 'linkedin', 'northeastern_email', 'company_name', 'coop_name', 'industry']);
               const fields = Object.entries(m).filter(
-                ([k, v]) => !isHiddenField(k) && v != null && v !== '',
+                ([k, v]) => v != null && v !== '' && !EXCLUDED_KEYS.has(k),
               );
 
-              const personal = [];
-              const membership = [];
-              const other = [];
+              const hasWorkInfo = m.company_name || m.coop_name || m.industry;
+              const workFields = hasWorkInfo
+                ? [['company_name', m.company_name], ['coop_name', m.coop_name], ['industry', m.industry]].filter(([, v]) => v != null && v !== '')
+                : [];
 
-              for (const [key, val] of fields) {
-                const lower = key.toLowerCase();
-                if (['birthday', 'phone', 'cell', 'mobile', 'email', 'major', 'minor', 'year', 'class'].some(p => lower.includes(p))) {
-                  personal.push([key, val]);
-                } else if (['active', 'graduated', 'alumni', 'joined', 'role', 'chapter'].some(p => lower.includes(p))) {
-                  membership.push([key, val]);
-                } else {
-                  other.push([key, val]);
-                }
-              }
-
-              const instagram = findField(m, 'instagram');
-              const linkedin = findField(m, 'linkedin');
+              const instagram = m.instagram || null;
+              const linkedin = m.linkedin || null;
               const photo = findPhotoField(m);
 
               return (
@@ -411,42 +388,40 @@ export default function MatchDiscovery() {
                         )}
                       </div>
 
-                      {/* name + social icons overlay */}
-                      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/30 to-transparent px-4 pb-4 pt-8">
-                        <p className="text-base font-bold leading-tight text-white drop-shadow">{m.name}</p>
-                        <div className="flex items-center gap-1.5">
-                          {instagram && (
-                            <a
-                              href={instagram.startsWith('http') ? instagram : `https://instagram.com/${instagram.replace(/^@/, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white transition-transform duration-150 hover:scale-110"
-                              title="Instagram"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
-                              </svg>
-                            </a>
-                          )}
-                          {linkedin && (
-                            <a
-                              href={linkedin.startsWith('http') ? linkedin : `https://linkedin.com/in/${linkedin}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0A66C2] text-white transition-transform duration-150 hover:scale-110"
-                              title="LinkedIn"
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
-                              </svg>
-                            </a>
-                          )}
-                        </div>
+                      {/* social icons overlay */}
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1">
+                        {instagram && (
+                          <a
+                            href={instagram.startsWith('http') ? instagram : `https://instagram.com/${instagram.replace(/^@/, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white transition-transform duration-150 hover:scale-110"
+                            title="Instagram"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                            </svg>
+                          </a>
+                        )}
+                        {linkedin && (
+                          <a
+                            href={linkedin.startsWith('http') ? linkedin : `https://linkedin.com/in/${linkedin}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0A66C2] text-white transition-transform duration-150 hover:scale-110"
+                            title="LinkedIn"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            </svg>
+                          </a>
+                        )}
                       </div>
                     </div>
 
                     {/* right: organized details */}
                     <div className="flex min-w-0 flex-1 flex-col gap-5 p-6 sm:p-8">
+                      <p className="text-lg font-bold text-black">{m.name}</p>
                       {isSearchMode && (
                         <div className="flex items-center gap-2">
                           <span className="rounded-full bg-[#EAF5FF] px-2.5 py-0.5 text-xs font-semibold text-[#4C9BEA]">
@@ -454,26 +429,15 @@ export default function MatchDiscovery() {
                           </span>
                         </div>
                       )}
-                      {personal.length > 0 && (
-                        <FieldGroup title="Personal">
-                          {personal.map(([key, val]) => (
+                      {(fields.length > 0 || workFields.length > 0) && (
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+                          {fields.map(([key, val]) => (
                             <FieldCell key={key} rawKey={key} label={formatFieldLabel(key)} value={val} />
                           ))}
-                        </FieldGroup>
-                      )}
-                      {membership.length > 0 && (
-                        <FieldGroup title="Membership">
-                          {membership.map(([key, val]) => (
+                          {workFields.map(([key, val]) => (
                             <FieldCell key={key} rawKey={key} label={formatFieldLabel(key)} value={val} />
                           ))}
-                        </FieldGroup>
-                      )}
-                      {other.length > 0 && (
-                        <FieldGroup title="About">
-                          {other.map(([key, val]) => (
-                            <FieldCell key={key} rawKey={key} label={formatFieldLabel(key)} value={val} />
-                          ))}
-                        </FieldGroup>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -526,13 +490,3 @@ function FieldCell({ label, rawKey, value }) {
   );
 }
 
-function FieldGroup({ title, children }) {
-  return (
-    <div>
-      <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#BDE3FF]">{title}</p>
-      <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-        {children}
-      </div>
-    </div>
-  );
-}
