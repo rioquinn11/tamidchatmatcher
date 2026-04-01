@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import MatchDiscovery from './pages/MatchDiscovery';
+import Leaderboard from './pages/Leaderboard';
 
 function PrivateRoute({ children }) {
   const [session, setSession] = useState(undefined);
@@ -38,6 +39,14 @@ export default function App() {
           element={
             <PrivateRoute>
               <MatchDiscovery />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <PrivateRoute>
+              <Leaderboard />
             </PrivateRoute>
           }
         />
