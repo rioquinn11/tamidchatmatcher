@@ -31,7 +31,11 @@ EXPANSION_SYSTEM_PROMPT = (
 def search_matches():
     body = request.get_json(silent=True) or {}
     query = body.get("query", "").strip()
-    limit = min(int(body.get("limit", 5)), 20)
+    try:
+        raw_limit = int(body.get("limit", 10))
+    except (TypeError, ValueError):
+        raw_limit = 10
+    limit = max(1, min(raw_limit, 50))
 
     if not query:
         return jsonify({"error": "query is required"}), 400
@@ -89,6 +93,17 @@ def search_matches():
                 break
 
     bucket_index = build_bucket_index(sb)
+
+    not_interested = set()
+    req_email = (body.get("email") or "").strip().lower()
+    if req_email:
+        try:
+            us_resp = sb.table("user_state").select("not_interested").eq("northeastern_email", req_email).execute()
+            if us_resp.data:
+                ni_raw = us_resp.data[0].get("not_interested") or ""
+                not_interested = {e.strip().lower() for e in ni_raw.split(",") if e.strip()}
+        except Exception:
+            pass
 
     scores = []
     for row in all_rows:

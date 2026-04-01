@@ -22,6 +22,12 @@ def get_matches():
     if not email:
         return jsonify({"error": "email query parameter is required"}), 400
 
+    try:
+        raw_limit = int(request.args.get("limit", 10))
+    except (TypeError, ValueError):
+        raw_limit = 10
+    limit = max(1, min(raw_limit, 50))
+
     if not SUPABASE_URL or not SUPABASE_KEY:
         return jsonify({"error": "Supabase credentials not configured on server"}), 500
 
@@ -52,9 +58,19 @@ def get_matches():
     target_vec = parse_embedding(target_row["embedding"])
     bucket_index = build_bucket_index(sb)
 
+    not_interested = set()
+    try:
+        us_resp = sb.table("user_state").select("not_interested").eq("northeastern_email", email).execute()
+        if us_resp.data:
+            ni_raw = us_resp.data[0].get("not_interested") or ""
+            not_interested = {e.strip().lower() for e in ni_raw.split(",") if e.strip()}
+    except Exception:
+        pass
+
     matches = []
     for row in rows:
-        if str(row.get("northeastern_email", "")).lower() == email:
+        row_email = str(row.get("northeastern_email", "")).lower()
+        if row_email == email or row_email in not_interested:
             continue
         if should_hide_alef_2026_classmate(
             target_row.get("tamid_class"), row.get("tamid_class")
@@ -70,6 +86,6 @@ def get_matches():
         matches.append(profile)
 
     matches.sort(key=lambda x: x["score"], reverse=True)
-    matches = matches[:10]
+    matches = matches[:limit]
 
     return jsonify({"target": target_row.get("name", ""), "matches": matches})
