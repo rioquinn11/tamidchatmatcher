@@ -244,7 +244,7 @@ export default function MatchDiscovery() {
       </nav>
 
       {/* ── Decorative background ── */}
-      <div className="pointer-events-none absolute inset-0">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -bottom-10 -left-20 h-72 w-96 rounded-[58%_42%_65%_35%/45%_35%_65%_55%] bg-[#8ED3FF] opacity-70 blur-[1px]" />
         <div className="absolute right-[-140px] top-1/2 h-60 w-[520px] -translate-y-1/2 rounded-[60%_40%_50%_50%/45%_40%_60%_55%] bg-[#8ACFFF] opacity-70 blur-[1px]" />
         <div className="absolute left-[15%] top-24 h-20 w-20 rounded-full border-4 border-[#CDEBFF] opacity-40" />
