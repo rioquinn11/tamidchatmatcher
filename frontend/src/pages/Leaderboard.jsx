@@ -1,20 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { sidebarLinkClass, SIDEBAR_TABS } from '../sidebarNav';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-function sidebarLinkClass({ isActive }) {
-  return [
-    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-    isActive
-      ? 'bg-[#F0F8FF] font-semibold text-[#4C9BEA]'
-      : 'font-medium text-[#656D79] hover:bg-[#F2F4F8]',
-  ].join(' ');
-}
-
 export default function Leaderboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -97,15 +90,26 @@ export default function Leaderboard() {
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          <NavLink to="/matches" className={sidebarLinkClass} end>
+          {SIDEBAR_TABS.map(tab => (
+            <NavLink
+              key={tab.id}
+              to={tab.id === 'matches' ? '/matches' : `/matches?tab=${tab.id}`}
+              className={sidebarLinkClass({ isActive: false })}
+              onClick={() => setSidebarOpen(false)}
+            >
+              {tab.icon}
+              {tab.label}
+            </NavLink>
+          ))}
+          <NavLink
+            to="/leaderboard"
+            className={() =>
+              sidebarLinkClass({ isActive: location.pathname === '/leaderboard' })
+            }
+            onClick={() => setSidebarOpen(false)}
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            Matches
-          </NavLink>
-          <NavLink to="/leaderboard" className={sidebarLinkClass}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" />
+              <path d="M8 21h8M12 17v4M6 3h12l-3 7h3l-7 11 2-7H7l3-7H6z" />
             </svg>
             Leaderboard
           </NavLink>

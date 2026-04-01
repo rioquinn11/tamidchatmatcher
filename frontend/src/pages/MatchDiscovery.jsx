@@ -1,17 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate, NavLink } from 'react-router-dom';
+import { useNavigate, NavLink, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { sidebarLinkClass, SIDEBAR_TABS, tabFromSearchParam } from '../sidebarNav';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-function sidebarLinkClass({ isActive }) {
-  return [
-    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors',
-    isActive
-      ? 'bg-[#F0F8FF] font-semibold text-[#4C9BEA]'
-      : 'font-medium text-[#656D79] hover:bg-[#F2F4F8]',
-  ].join(' ');
-}
 
 /** Preload this many ranked matches; only {@link MATCH_DISPLAY_COUNT} are shown at once. Refetch when the pool drops below {@link MATCH_DISPLAY_COUNT}. */
 const MATCH_POOL_SIZE = 20;
@@ -51,54 +43,16 @@ function isPhoneField(key) {
   return k.includes('phone') || k.includes('cell') || k.includes('mobile');
 }
 
-const SIDEBAR_TABS = [
-  {
-    id: 'matches',
-    label: 'Matches',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-  },
-  {
-    id: 'not_interested',
-    label: 'Not Interested',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><path d="m4.93 4.93 14.14 14.14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'pending',
-    label: 'Pending',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'completed',
-    label: 'Completed',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-      </svg>
-    ),
-  },
-];
-
 export default function MatchDiscovery() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const activeTab = tabFromSearchParam(searchParams.get('tab'));
   const [target, setTarget] = useState(null);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const sidebarRef = useRef(null);
-  const [activeTab, setActiveTab] = useState('matches');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
@@ -109,6 +63,8 @@ export default function MatchDiscovery() {
   const emailRef = useRef('');
 
   const [notInterestedProfiles, setNotInterestedProfiles] = useState([]);
+  const [completedProfiles, setCompletedProfiles] = useState([]);
+  const [completedLoading, setCompletedLoading] = useState(false);
   const [dismissingEmail, setDismissingEmail] = useState(null);
 
   useEffect(() => {
@@ -131,6 +87,22 @@ export default function MatchDiscovery() {
       setNotInterestedProfiles(data.profiles || []);
     } catch {
       setNotInterestedProfiles([]);
+    }
+  }, []);
+
+  const fetchCompletedProfiles = useCallback(async (email, session) => {
+    setCompletedLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/user-state/completed/profiles?email=${encodeURIComponent(email)}`,
+        { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} },
+      );
+      const data = await res.json();
+      setCompletedProfiles(data.profiles || []);
+    } catch {
+      setCompletedProfiles([]);
+    } finally {
+      setCompletedLoading(false);
     }
   }, []);
 
@@ -203,11 +175,12 @@ export default function MatchDiscovery() {
       }
 
       fetchNotInterestedProfiles(email, session);
+      fetchCompletedProfiles(email, session);
     }
 
     fetchMatches();
     return () => { cancelled = true; };
-  }, [navigate, fetchNotInterestedProfiles]);
+  }, [navigate, fetchNotInterestedProfiles, fetchCompletedProfiles]);
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -282,28 +255,47 @@ export default function MatchDiscovery() {
       });
       if (!postRes.ok) return;
 
+      // Optimistic list updates (instant UI)
+      let needsRefill = false;
       try {
         if (inSearch && queryForSearch && session) {
           const next = (searchResults || []).filter(remove);
           setSearchResults(next);
-          if (next.length < MATCH_DISPLAY_COUNT) {
-            await refillSearchPool(session, email, queryForSearch);
-          }
+          needsRefill = next.length < MATCH_DISPLAY_COUNT;
         } else if (!inSearch && session) {
           const next = matches.filter(remove);
           setMatches(next);
-          if (next.length < MATCH_DISPLAY_COUNT) {
-            await refillMatchPool(session, email);
-          }
+          needsRefill = next.length < MATCH_DISPLAY_COUNT;
         } else if (inSearch) {
+          const next = (searchResults || []).filter(remove);
           setSearchResults(prev => (prev ? prev.filter(remove) : prev));
+          needsRefill = next.length < MATCH_DISPLAY_COUNT;
         }
       } catch {
         setMatches(prev => prev.filter(remove));
         setSearchResults(prev => (prev ? prev.filter(remove) : prev));
       }
 
-      if (session) await fetchNotInterestedProfiles(email, session);
+      // Tab data: we already have this profile; avoid a slow full refetch on every dismiss
+      setNotInterestedProfiles(prev => {
+        if (prev.some(m => (m.northeastern_email || '').toLowerCase() === tNorm)) return prev;
+        return [...prev, profile];
+      });
+
+      // Refill hits /api/matches (full combined scan) or search — run in background so the button is not blocked
+      if (needsRefill && session) {
+        void (async () => {
+          try {
+            if (inSearch && queryForSearch) {
+              await refillSearchPool(session, email, queryForSearch);
+            } else if (!inSearch) {
+              await refillMatchPool(session, email);
+            }
+          } catch {
+            /* pool stays at optimistic count until next navigation or refresh */
+          }
+        })();
+      }
     } finally {
       setDismissingEmail(null);
     }
@@ -372,13 +364,24 @@ export default function MatchDiscovery() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4">
-          <a href="/matches" className="flex items-center gap-3 rounded-lg bg-[#F0F8FF] px-3 py-2.5 text-sm font-semibold text-[#4C9BEA]">
+        <nav className="flex-1 space-y-1 px-3 py-4">
+          {SIDEBAR_TABS.map(tab => (
+            <NavLink
+              key={tab.id}
+              to={tab.id === 'matches' ? '/matches' : `/matches?tab=${tab.id}`}
+              className={() => sidebarLinkClass({ isActive: activeTab === tab.id })}
+              onClick={() => setSidebarOpen(false)}
+            >
+              {tab.icon}
+              {tab.label}
+            </NavLink>
+          ))}
+          <NavLink to="/leaderboard" className={sidebarLinkClass} onClick={() => setSidebarOpen(false)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              <path d="M8 21h8M12 17v4M6 3h12l-3 7h3l-7 11 2-7H7l3-7H6z" />
             </svg>
-            Matches
-          </a>
+            Leaderboard
+          </NavLink>
         </nav>
 
         <div className="border-t border-[#E9EEF5] px-3 py-4">
@@ -617,11 +620,32 @@ export default function MatchDiscovery() {
           <>
             <div className="mb-8">
               <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">Completed</h1>
-              <p className="mt-1 text-sm text-[#858B96]">Profiles you have already connected with.</p>
+              <p className="mt-1 text-sm text-[#858B96]">
+                People you've had a Tamid chat with.
+              </p>
             </div>
-            <p className="py-16 text-center text-sm text-[#858B96]">
-              No completed connections yet.
-            </p>
+
+            {completedLoading ? (
+              <div className="flex flex-col items-center gap-3 py-24">
+                <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#E8F6FF] border-t-[#74B8F3]" />
+                <p className="text-sm text-[#858B96]">Loading completed chats…</p>
+              </div>
+            ) : completedProfiles.length === 0 ? (
+              <p className="py-16 text-center text-sm text-[#858B96]">
+                No completed Tamid chats yet. Once you chat with someone, they'll appear here.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-5">
+                {completedProfiles.map((m, i) => (
+                  <ProfileCard
+                    key={m.northeastern_email ?? m.name ?? i}
+                    profile={m}
+                    index={i}
+                    isSearchMode={false}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
 

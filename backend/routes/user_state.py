@@ -104,6 +104,36 @@ def get_not_interested_profiles():
     return jsonify({"profiles": profiles})
 
 
+@user_state_bp.get("/completed/profiles", strict_slashes=False)
+def get_completed_profiles():
+    email = request.args.get("email", "").strip().lower()
+    if not email:
+        return jsonify({"error": "email query parameter is required"}), 400
+
+    sb = create_client(SUPABASE_URL, SUPABASE_KEY)
+    row = _get_row(sb, email)
+    if not row:
+        return jsonify({"profiles": []})
+
+    completed_emails = _parse_csv(row.get("completed"))
+    if not completed_emails:
+        return jsonify({"profiles": []})
+
+    bucket_index = build_bucket_index(sb)
+    profiles = []
+    for c_email in completed_emails:
+        resp = sb.table("combined").select(PROFILE_SELECT).eq("northeastern_email", c_email).execute()
+        if resp.data:
+            r = resp.data[0]
+            profile = {k: v for k, v in r.items() if k != "picture" and v is not None}
+            url = photo_url(r, bucket_index)
+            if url:
+                profile["photo_url"] = url
+            profiles.append(profile)
+
+    return jsonify({"profiles": profiles})
+
+
 @user_state_bp.delete("/not-interested", strict_slashes=False)
 def remove_not_interested():
     body = request.get_json(silent=True) or {}
