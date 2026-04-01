@@ -1,6 +1,9 @@
 from flask import Blueprint, request, jsonify
 from openai import OpenAI
 from supabase import create_client
+import json
+from pathlib import Path
+import time
 
 from .helpers import (
     SUPABASE_URL,
@@ -105,8 +108,13 @@ def search_matches():
         except Exception:
             pass
 
+    leaked_not_interested_count = 0
     scores = []
     for row in all_rows:
+        row_email = str(row.get("northeastern_email", "")).lower()
+        if row_email in not_interested:
+            leaked_not_interested_count += 1
+            continue
         if should_hide_alef_2026_classmate(viewer_tamid, row.get("tamid_class")):
             continue
         raw = row.get("professional_embedding")
@@ -120,6 +128,33 @@ def search_matches():
         if url:
             profile["photo_url"] = url
         scores.append(profile)
+
+    # region agent log
+    try:
+        Path("/Users/rioquinn/Desktop/Coding Projects/tamidchatmatcher/.cursor/debug-be6e68.log").parent.mkdir(parents=True, exist_ok=True)
+        with Path("/Users/rioquinn/Desktop/Coding Projects/tamidchatmatcher/.cursor/debug-be6e68.log").open("a", encoding="utf-8") as _f:
+            _f.write(
+                json.dumps(
+                    {
+                        "sessionId": "be6e68",
+                        "runId": "post-fix",
+                        "hypothesisId": "H3",
+                        "location": "backend/routes/match_custom.py:134",
+                        "message": "Search not_interested telemetry",
+                        "data": {
+                            "reqEmail": req_email,
+                            "notInterestedCount": len(not_interested),
+                            "leakedNotInterestedCount": leaked_not_interested_count,
+                            "scoresCount": len(scores),
+                        },
+                        "timestamp": int(time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+    except Exception:
+        pass
+    # endregion
 
     scores.sort(key=lambda x: x["score"], reverse=True)
 
