@@ -1,8 +1,7 @@
-"""Embed a fixed sentence and print the vector to stdout (OpenAI text-embedding-3-small)."""
+"""Embed a fixed sentence; print the first 4 dimensions to 3 decimal places (text-embedding-3-small)."""
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -14,7 +13,7 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-SENTENCE = "Hello from Tamid Chat Matcher instant embed."
+SENTENCE = "バスケットボールをするのが好きです"
 
 MODEL = "text-embedding-3-small"
 
@@ -31,8 +30,8 @@ def main() -> None:
     response = client.embeddings.create(model=MODEL, input=SENTENCE)
     embedding = response.data[0].embedding
 
-    print(f"dimensions: {len(embedding)}")
-    print(json.dumps(embedding, indent=2))
+    first_four = embedding[:4]
+    print(" ".join(f"{x:.4f}" for x in first_four))
 
 
 if __name__ == "__main__":
