@@ -27,11 +27,11 @@ TAMID Chat Matcher is a dynamic planner powered by a matching algorithm that rec
 
 | Layer | Technology |
 |---|---|
-| Frontend | React.js / Next.js |
-| Backend | FastAPI / Express.js |
-| Database | Supabase / Firebase |
-| Integrations | Google Calendar API, Slack API, Notion API, LinkedIn |
-| ML / Matching | Python (scikit-learn / custom algorithm) |
+| Frontend | React.js|
+| Backend | FastAPI |
+| Database | Supabase |
+| Integrations | Slack API, Notion API |
+| Embedder | OpenAI - text-embedding-3 |
 | Auth | Role-based authentication with HTTPS |
 
 ## Architecture
