@@ -5,8 +5,7 @@ import { sidebarLinkClass, SIDEBAR_TABS, tabFromSearchParam } from '../sidebarNa
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-/** Preload this many ranked matches; only {@link MATCH_DISPLAY_COUNT} are shown at once. Refetch when the pool drops below {@link MATCH_DISPLAY_COUNT}. */
-const MATCH_POOL_SIZE = 20;
+/** Server returns the full ranked list; only {@link MATCH_DISPLAY_COUNT} cards are shown at once. Refetch after dismiss/add when the visible list drops below this count. */
 const MATCH_DISPLAY_COUNT = 10;
 
 function getInitials(name) {
@@ -72,15 +71,24 @@ export default function MatchDiscovery() {
   const [removingPendingEmail, setRemovingPendingEmail] = useState(null);
   const [removingCompletedEmail, setRemovingCompletedEmail] = useState(null);
 
+  const [classList, setClassList] = useState([]);
+  const [hiddenClasses, setHiddenClasses] = useState(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+  const hiddenClassesRef = useRef(new Set());
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (sidebarOpen && sidebarRef.current && !sidebarRef.current.contains(e.target)) {
         setSidebarOpen(false);
       }
+      if (filterOpen && filterRef.current && !filterRef.current.contains(e.target)) {
+        setFilterOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [sidebarOpen]);
+  }, [sidebarOpen, filterOpen]);
 
   const fetchNotInterestedProfiles = useCallback(async (email, session) => {
     try {
@@ -125,8 +133,9 @@ export default function MatchDiscovery() {
   }, []);
 
   const refillMatchPool = useCallback(async (session, email) => {
+    const excludeParam = [...hiddenClassesRef.current].map(encodeURIComponent).join(',');
     const res = await fetch(
-      `${API_BASE}/api/matches/?email=${encodeURIComponent(email)}&limit=${MATCH_POOL_SIZE}`,
+      `${API_BASE}/api/matches/?email=${encodeURIComponent(email)}${excludeParam ? `&exclude_classes=${excludeParam}` : ''}`,
       { headers: { Authorization: `Bearer ${session.access_token}` } },
     );
     const data = await res.json();
@@ -146,7 +155,7 @@ export default function MatchDiscovery() {
         'Content-Type': 'application/json',
         ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
       },
-      body: JSON.stringify({ query, limit: MATCH_POOL_SIZE, email }),
+      body: JSON.stringify({ query, email, exclude_classes: [...hiddenClassesRef.current] }),
     });
     const data = await res.json();
     if (!data.error) {
@@ -171,9 +180,29 @@ export default function MatchDiscovery() {
       const email = session.user.email.toLowerCase();
       emailRef.current = email;
 
+      let initialHidden = new Set();
+      try {
+        const classRes = await fetch(
+          `${API_BASE}/api/classes/?email=${encodeURIComponent(email)}`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } },
+        );
+        const classData = await classRes.json();
+        if (!cancelled && classData.classes) {
+          setClassList(classData.classes);
+          if (classData.viewer_class) {
+            initialHidden = new Set([classData.viewer_class]);
+          }
+          setHiddenClasses(initialHidden);
+          hiddenClassesRef.current = initialHidden;
+        }
+      } catch {
+        /* proceed without class filter */
+      }
+
+      const excludeParam = [...initialHidden].map(encodeURIComponent).join(',');
       try {
         const res = await fetch(
-          `${API_BASE}/api/matches/?email=${encodeURIComponent(email)}&limit=${MATCH_POOL_SIZE}`,
+          `${API_BASE}/api/matches/?email=${encodeURIComponent(email)}${excludeParam ? `&exclude_classes=${excludeParam}` : ''}`,
           { headers: { Authorization: `Bearer ${session.access_token}` } },
         );
         const data = await res.json();
@@ -219,7 +248,8 @@ export default function MatchDiscovery() {
         },
         body: JSON.stringify({
           query: searchQuery.trim(),
-          limit: MATCH_POOL_SIZE, email: emailRef.current,
+          email: emailRef.current,
+          exclude_classes: [...hiddenClassesRef.current],
           ...(session?.user?.email
             ? { email: session.user.email.toLowerCase() }
             : {}),
@@ -499,6 +529,23 @@ export default function MatchDiscovery() {
     }
   }
 
+  function toggleClass(className) {
+    const next = new Set(hiddenClasses);
+    if (next.has(className)) next.delete(className);
+    else next.add(className);
+    hiddenClassesRef.current = next;
+    setHiddenClasses(next);
+
+    const session = sessionRef.current;
+    const email = emailRef.current;
+    if (!session || !email) return;
+    if (searchResults !== null && searchQuery.trim()) {
+      refillSearchPool(session, email, searchQuery.trim());
+    } else {
+      refillMatchPool(session, email);
+    }
+  }
+
   const isSearchMode = searchResults !== null;
   const matchDisplayPool = isSearchMode ? (searchResults ?? []) : matches;
   const activeMatches = matchDisplayPool.slice(0, MATCH_DISPLAY_COUNT);
@@ -647,22 +694,80 @@ export default function MatchDiscovery() {
               )}
             </form>
 
-            {/* Heading */}
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">
-                {isSearchMode ? 'Search Results' : 'Your Top Matches'}
-              </h1>
-              {!isSearchMode && target && (
-                <p className="mt-1 text-sm text-[#858B96]">
-                  Showing the best chat partners for{' '}
-                  <span className="font-semibold text-[#2E323A]">{target}</span>
-                </p>
-              )}
-              {isSearchMode && (
-                <p className="mt-1 text-sm text-[#858B96]">
-                  Top matches for{' '}
-                  <span className="font-semibold text-[#2E323A]">"{searchQuery}"</span>
-                </p>
+            {/* Heading + Filter */}
+            <div className="mb-8 flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">
+                  {isSearchMode ? 'Search Results' : 'Your Top Matches'}
+                </h1>
+                {!isSearchMode && target && (
+                  <p className="mt-1 text-sm text-[#858B96]">
+                    Showing the best chat partners for{' '}
+                    <span className="font-semibold text-[#2E323A]">{target}</span>
+                  </p>
+                )}
+                {isSearchMode && (
+                  <p className="mt-1 text-sm text-[#858B96]">
+                    Top matches for{' '}
+                    <span className="font-semibold text-[#2E323A]">"{searchQuery}"</span>
+                  </p>
+                )}
+              </div>
+
+              {classList.length > 0 && (
+                <div className="relative" ref={filterRef}>
+                  <button
+                    type="button"
+                    onClick={() => setFilterOpen(prev => !prev)}
+                    className="flex items-center gap-2 rounded-lg border border-[#E8EDF3] bg-white px-3 py-2 text-sm font-medium text-[#656D79] shadow-sm transition-colors hover:bg-[#F2F4F8]"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    Filter
+                    {hiddenClasses.size > 0 && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4C9BEA] px-1.5 text-[11px] font-bold text-white">
+                        {hiddenClasses.size}
+                      </span>
+                    )}
+                  </button>
+
+                  {filterOpen && (
+                    <div className="absolute right-0 top-full z-20 mt-2 w-72 rounded-xl border border-[#E8EDF3] bg-white py-2 shadow-[0_12px_40px_rgba(15,38,72,0.12)]">
+                      <p className="px-4 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-[#A6ACB7]">
+                        Filter by class
+                      </p>
+                      {classList.map(cls => {
+                        const isHidden = hiddenClasses.has(cls.name);
+                        return (
+                          <button
+                            key={cls.name}
+                            type="button"
+                            onClick={() => toggleClass(cls.name)}
+                            className="flex w-full items-center justify-between px-4 py-2 text-left text-sm transition-colors hover:bg-[#F2F4F8]"
+                          >
+                            <span className={`font-medium ${isHidden ? 'text-[#A6ACB7]' : 'text-[#2E323A]'}`}>
+                              {cls.name}
+                            </span>
+                            <span
+                              className={`flex h-5 w-5 items-center justify-center rounded ${
+                                isHidden
+                                  ? 'border border-[#D1D5DB] bg-white'
+                                  : 'bg-[#4C9BEA]'
+                              }`}
+                            >
+                              {!isHidden && (
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

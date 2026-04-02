@@ -10,6 +10,7 @@ from routes.match_introductions import introductions_bp
 from routes.match_custom import custom_bp
 from routes.user_state import user_state_bp
 from routes.leaderboard import leaderboard_bp
+from routes.classes import classes_bp
 
 load_dotenv()
 
@@ -22,6 +23,7 @@ app.register_blueprint(introductions_bp, url_prefix="/api/matches")
 app.register_blueprint(custom_bp, url_prefix="/api/matches")
 app.register_blueprint(user_state_bp, url_prefix="/api/user-state")
 app.register_blueprint(leaderboard_bp, url_prefix="/api/leaderboard")
+app.register_blueprint(classes_bp, url_prefix="/api/classes")
 
 # region agent log
 try:

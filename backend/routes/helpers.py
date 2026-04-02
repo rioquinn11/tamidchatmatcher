@@ -13,16 +13,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 PAGE_SIZE = 500
 
-# Must match combined.tamid_class exactly for current Alef education cohort.
-ALEF_2026_CLASS_LABEL = "Alef (Spring 2026)"
-
-
-def should_hide_alef_2026_classmate(viewer_class, candidate_class) -> bool:
-    v = (viewer_class or "").strip()
-    c = (candidate_class or "").strip()
-    return v == ALEF_2026_CLASS_LABEL and c == ALEF_2026_CLASS_LABEL
-
-
 DISPLAY_COLUMNS = [
     "name",
     "birthday",

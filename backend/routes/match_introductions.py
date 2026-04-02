@@ -7,7 +7,6 @@ from .helpers import (
     DISPLAY_COLUMNS,
     dot_product,
     parse_embedding,
-    should_hide_alef_2026_classmate,
     excluded_emails_from_user_state_row,
     should_exclude_from_match_pool,
 )
@@ -23,12 +22,6 @@ def get_matches():
     email = request.args.get("email", "").strip().lower()
     if not email:
         return jsonify({"error": "email query parameter is required"}), 400
-
-    try:
-        raw_limit = int(request.args.get("limit", 10))
-    except (TypeError, ValueError):
-        raw_limit = 10
-    limit = max(1, min(raw_limit, 50))
 
     if not SUPABASE_URL or not SUPABASE_KEY:
         return jsonify({"error": "Supabase credentials not configured on server"}), 500
@@ -60,6 +53,9 @@ def get_matches():
     target_vec = parse_embedding(target_row["embedding"])
     bucket_index = build_bucket_index(sb)
 
+    exclude_classes_raw = request.args.get("exclude_classes", "")
+    exclude_classes = {c.strip() for c in exclude_classes_raw.split(",") if c.strip()} if exclude_classes_raw else set()
+
     excluded = set()
     try:
         us_resp = (
@@ -78,9 +74,7 @@ def get_matches():
         row_email = str(row.get("northeastern_email", "")).lower()
         if row_email == email or row_email in excluded:
             continue
-        if should_hide_alef_2026_classmate(
-            target_row.get("tamid_class"), row.get("tamid_class")
-        ):
+        if exclude_classes and (row.get("tamid_class") or "").strip() in exclude_classes:
             continue
         if should_exclude_from_match_pool(row):
             continue
@@ -98,6 +92,5 @@ def get_matches():
         matches.append(profile)
 
     matches.sort(key=lambda x: x["score"], reverse=True)
-    matches = matches[:limit]
 
     return jsonify({"target": target_row.get("name", ""), "matches": matches})

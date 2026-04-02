@@ -13,7 +13,6 @@ from .helpers import (
     DISPLAY_COLUMNS,
     dot_product,
     parse_embedding,
-    should_hide_alef_2026_classmate,
     excluded_emails_from_user_state_row,
     should_exclude_from_match_pool,
 )
@@ -29,12 +28,6 @@ SELECT_COLUMNS = ",".join(
 def search_matches():
     body = request.get_json(silent=True) or {}
     query = body.get("query", "").strip()
-    try:
-        raw_limit = int(body.get("limit", 10))
-    except (TypeError, ValueError):
-        raw_limit = 10
-    limit = max(1, min(raw_limit, 50))
-
     if not query:
         return jsonify({"error": "query is required"}), 400
 
@@ -69,13 +62,10 @@ def search_matches():
     except Exception as exc:
         return jsonify({"error": f"Supabase request failed: {exc}"}), 500
 
-    viewer_email = str(body.get("email", "")).strip().lower()
-    viewer_tamid = None
-    if viewer_email:
-        for r in all_rows:
-            if str(r.get("northeastern_email", "")).lower() == viewer_email:
-                viewer_tamid = r.get("tamid_class")
-                break
+    exclude_classes = set()
+    raw_exclude = body.get("exclude_classes")
+    if isinstance(raw_exclude, list):
+        exclude_classes = {c.strip() for c in raw_exclude if isinstance(c, str) and c.strip()}
 
     bucket_index = build_bucket_index(sb)
 
@@ -101,7 +91,7 @@ def search_matches():
         if row_email in excluded:
             leaked_excluded_count += 1
             continue
-        if should_hide_alef_2026_classmate(viewer_tamid, row.get("tamid_class")):
+        if exclude_classes and (row.get("tamid_class") or "").strip() in exclude_classes:
             continue
         if should_exclude_from_match_pool(row):
             continue
@@ -152,5 +142,5 @@ def search_matches():
 
     return jsonify({
         "query": query,
-        "matches": scores[:limit],
+        "matches": scores,
     })
