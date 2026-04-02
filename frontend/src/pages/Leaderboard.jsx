@@ -155,9 +155,6 @@ export default function Leaderboard() {
       <main className="relative z-10 px-6 py-10 sm:px-10 lg:px-16">
         <div className="mb-8">
           <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">Tamid Chat Leaderboard</h1>
-          <p className="mt-1 text-sm text-[#858B96]">
-            Ranked by completed Tamid chats (partner emails in your roster).
-          </p>
         </div>
 
         {loading && (
@@ -194,9 +191,6 @@ export default function Leaderboard() {
                       <td className="px-5 py-3.5 font-medium text-[#656D79]">{i + 1}</td>
                       <td className="px-5 py-3.5">
                         <span className="font-semibold text-[#2E323A]">{row.name}</span>
-                        {row.email && (
-                          <span className="mt-0.5 block text-xs text-[#A6ACB7]">{row.email}</span>
-                        )}
                       </td>
                       <td className="px-5 py-3.5 text-right font-semibold tabular-nums text-[#4C9BEA]">
                         {row.completed_count}
