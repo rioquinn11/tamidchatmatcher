@@ -1,129 +1,124 @@
-TAMID chats have historically been an amazing way for the new class to integrate socially into
-TAMID and learn from older members’ experiences. However, oftentimes, they come with some
-hurdles. Scheduling around busy calendars is difficult. Predicting how a TAMID chat will go is
-impossible. And using that precious time well is hard. How do you know who to TAMID Chat?
-What are the vibes? What will you do? What are they interested in? Your task is to automate a
-TAMID chat-matching system that addresses the planning and connection issues in TAMID
-chats.
+# TAMID Chat Matcher
 
-Client Pain Points
+An intelligent chat-matching platform that connects TAMID members for meaningful conversations based on shared interests, professional goals, and availability — replacing the guesswork of scheduling and planning TAMID chats.
 
-Difficulty in finding people to TAMID Chat outside IFC, TCF, and Education
-Missing interactions with members of the club who aren't as active with the education
-class
+## Problem
 
-Struggle to relate and find activities to do during TAMID chats
-No good unified tool to find people to TAMID chat, schedule the chats, and find new
-members of the club
+TAMID chats are one of the best ways for new members to integrate socially and learn from experienced members, but the current process is full of friction:
 
-Messy communication and scheduling systems, where multiple chat opportunities can
-get lost in Slack and in the member cards
+- **Scheduling is painful** — coordinating across busy calendars with no unified tool leads to missed opportunities buried in Slack threads and member cards.
+- **Connections are left to chance** — there's no way to predict chemistry or shared interests before a chat, so members often miss people they'd genuinely connect with.
+- **Planning is vague** — even once a chat is scheduled, members struggle to find common ground or activities ahead of time.
+- **Reach is limited** — interactions tend to stay within IFC, TCF, and Education, leaving less-active members disconnected.
 
-Can’t predict a member’s personality before a TAMID chat so oftentimes never meet
-people you connect well with early on
+## Solution
 
-Need automation due to high amounts of data, number of members, and frequency of
-TAMID chat interactions
+TAMID Chat Matcher is a dynamic planner powered by a matching algorithm that recommends chat partners based on interests, activity preferences, and availability. Members can choose whether they're looking for professional advice, shared hobbies, or casual connection — and the system handles the rest.
 
+### Key Features
 
-Project Overview
+- **Smart Matching Algorithm** — ML-driven recommendations built from Notion member cards, LinkedIn profiles, user input, and historical chat data.
+- **Google Calendar Integration** — Automatic availability detection and `.ics` scheduling across members.
+- **Slack Reminders** — Automated notifications for upcoming chats and weekly engagement highlights.
+- **Interactive Dashboard** — Real-time leaderboards, engagement metrics, and mentorship tracking for members and admins.
+- **Role-Based Access** — Distinct views for education users, committee admins, and general members.
 
+## Tech Stack
 
-Building this dynamic planner that implements a TAMID chatting algorithm to allow users to find
-people to TAMID chat based on their interests, activity choices, and availability. This should
-allow members to decide if they want to TAMID chat with someone for professional advice, for
-shared interests, or for other relevant categories. This should integrate Google Calendar to deal
-with availability, Slack for reminders, and a machine learning algorithm to match people based
-on the specified parameters, including social and professional interests (Notion - member cards,
-LinkedIn, + user input), along with historical chat patterns. This should also provide users with
-an engaging dashboard, showing the leaderboard of current winners and other important
-metrics.
+| Layer | Technology |
+|---|---|
+| Frontend | React.js / Next.js |
+| Backend | FastAPI / Express.js |
+| Database | Supabase / Firebase |
+| Integrations | Google Calendar API, Slack API, Notion API, LinkedIn |
+| ML / Matching | Python (scikit-learn / custom algorithm) |
+| Auth | Role-based authentication with HTTPS |
 
+## Architecture
 
-Key Deliverables
-1. A discovery algorithm to give people recommendations based on their interests and
-reflections of users that integrates with their inputs
-2. Automated Google Calendar integration for planning for each member of a group, and
-automated Slack reminders
-3. Support for data storage of how TAMID chats went and what users have done
-4. Maps and Graphs: Leaderboards and diagrams to show who is chatting the most, and
-weekly reminders of the member with the most TAMID chats for users; Data of strong
-interactions to support mentorship and professional development data for admin
-5. LinkedIn and Slack integration to build individual user profiles
-6. Input and user authentication pages to support education users, committee admin, and
-general member users
+```
+┌────────────────────────────────────────────────┐
+│                  Frontend (React)               │
+│   Dashboards · Profiles · Leaderboards · Auth   │
+└────────────────────┬───────────────────────────┘
+                     │
+                     ▼
+┌────────────────────────────────────────────────┐
+│              Backend API (FastAPI)              │
+│  Auth · Matching Engine · Points · Scheduling  │
+└──┬──────────┬──────────┬──────────┬────────────┘
+   │          │          │          │
+   ▼          ▼          ▼          ▼
+ Supabase   Google     Slack     Notion/
+   (DB)    Calendar     API     LinkedIn
+```
 
+## Project Structure
 
+```
+tamid-chat-matcher/
+├── client/              # Frontend application
+│   ├── src/
+│   │   ├── components/  # UI components
+│   │   ├── pages/       # Route views
+│   │   └── utils/       # Helper functions
+├── server/              # Backend API
+│   ├── api/             # Route handlers
+│   ├── services/        # Business logic & integrations
+│   ├── ml/              # Matching algorithm
+│   └── db/              # Schema & migrations
+├── docs/                # Documentation
+└── README.md
+```
 
+## Deliverables
 
-Task Breakdown :
+1. **Discovery Algorithm** — Interest and reflection-based recommendations with continuous optimization from historical chat data.
+2. **Calendar & Scheduling** — Automated availability matching with Google Calendar integration and Slack reminders.
+3. **Data Persistence** — Storage and retrieval of chat history, reflections, and user activity.
+4. **Analytics & Leaderboards** — Visual dashboards showing engagement metrics, top chatters, and mentorship data for admins.
+5. **Profile Enrichment** — Unified user profiles built from LinkedIn, Slack, Notion member cards, and self-reported input.
+6. **Authentication** — Secure role-based access for education users, committee admins, and general members.
 
-1. Database Design and Management
-Objective: Create a robust database schema to manage user access, record past
-TAMID chats, and user reflections. This should also keep track of member cards to
-minimize repetition.
-Implementation:
+## Getting Started
 
-Design schema for tracking places, locations, and users
-Include tables for the users, activities, professional interests, and relevant
-information.
+### Prerequisites
 
-Use a real-time database (e.g., Firebase or Supabase) or use Flask for an
-integrated database
+- Node.js ≥ 18
+- Python ≥ 3.10
+- Supabase or Firebase project
+- API keys for Google Calendar, Slack, Notion, and LinkedIn
 
-Ensure data privacy and secure user information
+### Installation
 
+```bash
+# Clone the repository
+git clone https://github.com/your-org/tamid-chat-matcher.git
+cd tamid-chat-matcher
 
-2. Backend & Matching Algorithm - Data from Notion, LinkedIn, and User Input
-Enable TAMID chat pairing based upon user data, building profiles from TAMID notion
-member cards and LinkedIn integration. Should also support the information the user
-inputs about their interests and historical chats. Develop a machine learning algorithm to
-match people for their chats, based on their respective interests (professional,
-personal/activity, etc.)
-Implementation:
-Select a backend framework (e.g., FastAPI, Express.js)
-Implement endpoints for:
+# Install frontend dependencies
+cd client && npm install
 
-User authentication
+# Install backend dependencies
+cd ../server && pip install -r requirements.txt
 
-Points tracking and scoreboard integration with the frontend
+# Configure environment variables
+cp .env.example .env
+# Add your API keys and database credentials to .env
 
-Develop an algorithm to choose group-matching
-Manage automatic point incrementation and player dashboard syncing when new
-points are added to a group
+# Start the development servers
+cd ../client && npm run dev
+cd ../server && uvicorn main:app --reload
+```
 
-Use Notion API and connect profiles with LinkedIn to create professional types
-that plug into your chosen algorithm
+## Contributing
 
-Utilize ongoing TAMID Chat Matcher data to optimize algorithm
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/your-feature`)
+3. Commit your changes (`git commit -m "Add your feature"`)
+4. Push to the branch (`git push origin feature/your-feature`)
+5. Open a Pull Request
 
-3. Calendar & Slack
-Objective: Enable seamless availability matcher, live visualization, and reminders about
-scheduled events.
-Implementation:
+## License
 
-Generate .ics files that record calendar data
-Protect user calendar information but still share availability
-Find common times, have an opportunity for confirmation, and a general Slack
-reminder
-
-4. Web Application and Dashboard
-Objective: Build an intuitive, user-friendly interface for point tracking and managing
-groups, with live displays of the current scoreboard and other dashboards.
-Implementation:
-
-Use a frontend framework (React.js or Next.js)
-Create clean, responsive dashboards
-Implement real-time updates for the chat tracking and match-making, as well as
-dashboards and leaderboards
-Have profiles for users and the ability to input matching wants
-
-5. Authentication and Security
-Objective: Ensure secure access and protect user information. Should have the ability
-to log in as an admin (group-managing member) or as a user (invited member).
-Implementation:
-
-Implement role-based authentication
-Secure user data and check-in information
-Enforce HTTPS and secure authentication protocols
-Provide options for privacy controls
+This project is developed for [TAMID at Northeastern University](https://www.tamidgroup.org/).
