@@ -1,9 +1,6 @@
 from flask import Blueprint, request, jsonify
 from openai import OpenAI
 from supabase import create_client
-import json
-from pathlib import Path
-import time
 
 from .helpers import (
     SUPABASE_URL,
@@ -110,33 +107,6 @@ def search_matches():
         if url:
             profile["photo_url"] = url
         scores.append(profile)
-
-    # region agent log
-    try:
-        Path("/Users/rioquinn/Desktop/Coding Projects/tamidchatmatcher/.cursor/debug-be6e68.log").parent.mkdir(parents=True, exist_ok=True)
-        with Path("/Users/rioquinn/Desktop/Coding Projects/tamidchatmatcher/.cursor/debug-be6e68.log").open("a", encoding="utf-8") as _f:
-            _f.write(
-                json.dumps(
-                    {
-                        "sessionId": "be6e68",
-                        "runId": "post-fix",
-                        "hypothesisId": "H3",
-                        "location": "backend/routes/match_custom.py:134",
-                        "message": "Search excluded (ni+pending+completed) telemetry",
-                        "data": {
-                            "reqEmail": req_email,
-                            "excludedCount": len(excluded),
-                            "leakedExcludedCount": leaked_excluded_count,
-                            "scoresCount": len(scores),
-                        },
-                        "timestamp": int(time.time() * 1000),
-                    }
-                )
-                + "\n"
-            )
-    except Exception:
-        pass
-    # endregion
 
     scores.sort(key=lambda x: x["score"], reverse=True)
 
