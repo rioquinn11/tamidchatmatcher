@@ -63,9 +63,14 @@ export default function MatchDiscovery() {
   const emailRef = useRef('');
 
   const [notInterestedProfiles, setNotInterestedProfiles] = useState([]);
+  const [pendingProfiles, setPendingProfiles] = useState([]);
   const [completedProfiles, setCompletedProfiles] = useState([]);
   const [completedLoading, setCompletedLoading] = useState(false);
   const [dismissingEmail, setDismissingEmail] = useState(null);
+  const [addingPendingEmail, setAddingPendingEmail] = useState(null);
+  const [completingPendingEmail, setCompletingPendingEmail] = useState(null);
+  const [removingPendingEmail, setRemovingPendingEmail] = useState(null);
+  const [removingCompletedEmail, setRemovingCompletedEmail] = useState(null);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -87,6 +92,19 @@ export default function MatchDiscovery() {
       setNotInterestedProfiles(data.profiles || []);
     } catch {
       setNotInterestedProfiles([]);
+    }
+  }, []);
+
+  const fetchPendingProfiles = useCallback(async (email, session) => {
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/user-state/pending/profiles?email=${encodeURIComponent(email)}`,
+        { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} },
+      );
+      const data = await res.json();
+      setPendingProfiles(data.profiles || []);
+    } catch {
+      setPendingProfiles([]);
     }
   }, []);
 
@@ -175,12 +193,13 @@ export default function MatchDiscovery() {
       }
 
       fetchNotInterestedProfiles(email, session);
+      fetchPendingProfiles(email, session);
       fetchCompletedProfiles(email, session);
     }
 
     fetchMatches();
     return () => { cancelled = true; };
-  }, [navigate, fetchNotInterestedProfiles, fetchCompletedProfiles]);
+  }, [navigate, fetchNotInterestedProfiles, fetchPendingProfiles, fetchCompletedProfiles]);
 
   async function handleSearch(e) {
     e.preventDefault();
@@ -298,6 +317,153 @@ export default function MatchDiscovery() {
       }
     } finally {
       setDismissingEmail(null);
+    }
+  }
+
+  async function handleAddToChatList(profile) {
+    const targetEmail = profile.northeastern_email;
+    if (!targetEmail || addingPendingEmail) return;
+
+    const session = sessionRef.current;
+    const email = emailRef.current;
+    const inSearch = searchResults !== null;
+    const queryForSearch = searchQuery.trim();
+    const tNorm = targetEmail.toLowerCase();
+    const remove = m => (m.northeastern_email || '').toLowerCase() !== tNorm;
+
+    setAddingPendingEmail(targetEmail);
+    try {
+      const postRes = await fetch(`${API_BASE}/api/user-state/pending`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_email: email, target_email: targetEmail }),
+      });
+      if (!postRes.ok) return;
+
+      let needsRefill = false;
+      try {
+        if (inSearch && queryForSearch && session) {
+          const next = (searchResults || []).filter(remove);
+          setSearchResults(next);
+          needsRefill = next.length < MATCH_DISPLAY_COUNT;
+        } else if (!inSearch && session) {
+          const next = matches.filter(remove);
+          setMatches(next);
+          needsRefill = next.length < MATCH_DISPLAY_COUNT;
+        } else if (inSearch) {
+          const next = (searchResults || []).filter(remove);
+          setSearchResults(prev => (prev ? prev.filter(remove) : prev));
+          needsRefill = next.length < MATCH_DISPLAY_COUNT;
+        }
+      } catch {
+        setMatches(prev => prev.filter(remove));
+        setSearchResults(prev => (prev ? prev.filter(remove) : prev));
+      }
+
+      setPendingProfiles(prev => {
+        if (prev.some(m => (m.northeastern_email || '').toLowerCase() === tNorm)) return prev;
+        return [...prev, profile];
+      });
+
+      if (needsRefill && session) {
+        void (async () => {
+          try {
+            if (inSearch && queryForSearch) {
+              await refillSearchPool(session, email, queryForSearch);
+            } else if (!inSearch) {
+              await refillMatchPool(session, email);
+            }
+          } catch {
+            /* pool stays short until refresh */
+          }
+        })();
+      }
+    } finally {
+      setAddingPendingEmail(null);
+    }
+  }
+
+  async function handlePendingMarkCompleted(profile) {
+    const targetEmail = profile.northeastern_email;
+    if (!targetEmail || completingPendingEmail) return;
+
+    const email = emailRef.current;
+    const tNorm = targetEmail.toLowerCase();
+    const remove = m => (m.northeastern_email || '').toLowerCase() !== tNorm;
+
+    setCompletingPendingEmail(targetEmail);
+    try {
+      const res = await fetch(`${API_BASE}/api/user-state/pending/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_email: email, target_email: targetEmail }),
+      });
+      if (!res.ok) return;
+
+      setPendingProfiles(prev => prev.filter(remove));
+      setCompletedProfiles(prev => {
+        if (prev.some(m => (m.northeastern_email || '').toLowerCase() === tNorm)) return prev;
+        return [...prev, profile];
+      });
+    } finally {
+      setCompletingPendingEmail(null);
+    }
+  }
+
+  async function handleRemoveFromPending(profile) {
+    const targetEmail = profile.northeastern_email;
+    if (!targetEmail || removingPendingEmail) return;
+
+    const email = emailRef.current;
+    const session = sessionRef.current;
+    const tNorm = targetEmail.toLowerCase();
+    const remove = m => (m.northeastern_email || '').toLowerCase() !== tNorm;
+
+    setRemovingPendingEmail(targetEmail);
+    try {
+      const delRes = await fetch(`${API_BASE}/api/user-state/pending`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_email: email, target_email: targetEmail }),
+      });
+      if (!delRes.ok) return;
+
+      setPendingProfiles(prev => prev.filter(remove));
+
+      if (session) {
+        void fetchPendingProfiles(email, session);
+        try {
+          await refillMatchPool(session, email);
+        } catch {
+          /* matches list refreshes on next visit */
+        }
+      }
+    } finally {
+      setRemovingPendingEmail(null);
+    }
+  }
+
+  async function handleRemoveFromCompleted(profile) {
+    const targetEmail = profile.northeastern_email;
+    if (!targetEmail || removingCompletedEmail) return;
+
+    const email = emailRef.current;
+    const session = sessionRef.current;
+    const tNorm = targetEmail.toLowerCase();
+    const remove = m => (m.northeastern_email || '').toLowerCase() !== tNorm;
+
+    setRemovingCompletedEmail(targetEmail);
+    try {
+      const delRes = await fetch(`${API_BASE}/api/user-state/completed`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_email: email, target_email: targetEmail }),
+      });
+      if (!delRes.ok) return;
+
+      setCompletedProfiles(prev => prev.filter(remove));
+    } finally {
+      setRemovingCompletedEmail(null);
     }
   }
 
@@ -539,12 +705,31 @@ export default function MatchDiscovery() {
                     key={m.northeastern_email ?? m.name ?? i}
                     profile={m}
                     index={i}
-                    isSearchMode={isSearchMode}
+                    chatListButton={
+                      <button
+                        type="button"
+                        onClick={() => handleAddToChatList(m)}
+                        disabled={
+                          addingPendingEmail === m.northeastern_email ||
+                          dismissingEmail === m.northeastern_email
+                        }
+                        className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#4C9BEA] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#3A87D4] disabled:opacity-40"
+                        title="Add to chat list"
+                      >
+                        {addingPendingEmail === m.northeastern_email ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        ) : null}
+                        Add to chat list
+                      </button>
+                    }
                     dismissButton={
                       <button
                         type="button"
                         onClick={() => handleDismiss(m)}
-                        disabled={dismissingEmail === m.northeastern_email}
+                        disabled={
+                          dismissingEmail === m.northeastern_email ||
+                          addingPendingEmail === m.northeastern_email
+                        }
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B7280]/70 text-white backdrop-blur-sm transition-all hover:bg-[#4B5563] disabled:opacity-40"
                         aria-label="Not interested"
                         title="Not interested"
@@ -582,7 +767,6 @@ export default function MatchDiscovery() {
                     key={m.northeastern_email ?? m.name ?? i}
                     profile={m}
                     index={i}
-                    isSearchMode={false}
                     actionButton={
                       <button
                         type="button"
@@ -607,11 +791,59 @@ export default function MatchDiscovery() {
           <>
             <div className="mb-8">
               <h1 className="text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">Pending</h1>
-              <p className="mt-1 text-sm text-[#858B96]">Profiles awaiting a response.</p>
+              <p className="mt-1 text-sm text-[#858B96]">
+                People you added from matches. They no longer appear in your main match list.
+              </p>
             </div>
-            <p className="py-16 text-center text-sm text-[#858B96]">
-              No pending profiles yet.
-            </p>
+            {pendingProfiles.length === 0 ? (
+              <p className="py-16 text-center text-sm text-[#858B96]">
+                No pending profiles yet. Use &quot;Add to chat list&quot; on the Matches tab to save someone here.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-5">
+                {pendingProfiles.map((m, i) => (
+                  <ProfileCard
+                    key={m.northeastern_email ?? m.name ?? i}
+                    profile={m}
+                    index={i}
+                    chatListButton={
+                      <button
+                        type="button"
+                        onClick={() => handlePendingMarkCompleted(m)}
+                        disabled={
+                          completingPendingEmail === m.northeastern_email ||
+                          removingPendingEmail === m.northeastern_email
+                        }
+                        className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#3d9a5f]/90 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#2d7a4a] disabled:opacity-40"
+                        title="Move to completed"
+                      >
+                        {completingPendingEmail === m.northeastern_email ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        ) : null}
+                        Marked completed
+                      </button>
+                    }
+                    dismissButton={
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFromPending(m)}
+                        disabled={
+                          removingPendingEmail === m.northeastern_email ||
+                          completingPendingEmail === m.northeastern_email
+                        }
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#6B7280]/70 text-white backdrop-blur-sm transition-all hover:bg-[#4B5563] disabled:opacity-40"
+                        aria-label="Remove from pending"
+                        title="Back to matches"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 6 6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -641,7 +873,20 @@ export default function MatchDiscovery() {
                     key={m.northeastern_email ?? m.name ?? i}
                     profile={m}
                     index={i}
-                    isSearchMode={false}
+                    actionButton={
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFromCompleted(m)}
+                        disabled={removingCompletedEmail === m.northeastern_email}
+                        className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#D1D5DB] bg-[#F3F4F6] px-3 py-1.5 text-xs font-semibold text-[#4B5563] shadow-sm transition-all hover:bg-[#E5E7EB] disabled:opacity-40"
+                        title="Remove from completed list"
+                      >
+                        {removingCompletedEmail === m.northeastern_email ? (
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#9CA3AF] border-t-[#4B5563]" />
+                        ) : null}
+                        Remove from completed
+                      </button>
+                    }
                   />
                 ))}
               </div>
@@ -654,7 +899,7 @@ export default function MatchDiscovery() {
   );
 }
 
-function ProfileCard({ profile: m, index: i, isSearchMode, dismissButton, actionButton }) {
+function ProfileCard({ profile: m, index: i, chatListButton, dismissButton, actionButton }) {
   const EXCLUDED_KEYS = new Set(['name', 'score', 'photo_url', 'instagram', 'linkedin', 'northeastern_email', 'company_name', 'coop_name', 'industry']);
   const fields = Object.entries(m).filter(
     ([k, v]) => v != null && v !== '' && !EXCLUDED_KEYS.has(k),
@@ -733,16 +978,10 @@ function ProfileCard({ profile: m, index: i, isSearchMode, dismissButton, action
           <div className="flex min-w-0 items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-lg font-bold text-black">{m.name}</p>
-              {isSearchMode && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="rounded-full bg-[#EAF5FF] px-2.5 py-0.5 text-xs font-semibold text-[#4C9BEA]">
-                    Score: {m.score}
-                  </span>
-                </div>
-              )}
             </div>
-            {(dismissButton || actionButton) ? (
-              <div className="flex shrink-0 items-center gap-2 pt-0.5">
+            {(chatListButton || dismissButton || actionButton) ? (
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 pt-0.5">
+                {chatListButton}
                 {dismissButton}
                 {actionButton}
               </div>

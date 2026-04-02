@@ -14,21 +14,16 @@ from .helpers import (
     dot_product,
     parse_embedding,
     should_hide_alef_2026_classmate,
+    excluded_emails_from_user_state_row,
+    should_exclude_from_match_pool,
 )
 from .photos import build_bucket_index, photo_url
 
 custom_bp = Blueprint("custom", __name__)
 
-SELECT_COLUMNS = ",".join(DISPLAY_COLUMNS + ["professional_embedding", "picture"])
-
-EXPANSION_SYSTEM_PROMPT = (
-    "You are a bot that converts an input in a small paragraph which is embedded into a vector "
-    "and used to query a database. Your job is to convert whatever the input is into a form that "
-    "provides a more accurate embedding. Format your response as a description of a hypothetical "
-    "member that has the queries desired traits. Do not guess any information, only include what "
-    "was requested in the query to generate your description."
+SELECT_COLUMNS = ",".join(
+    DISPLAY_COLUMNS + ["professional_embedding", "picture", "is_graduated", "is_active"]
 )
-
 
 @custom_bp.post("/search", strict_slashes=False)
 def search_matches():
@@ -52,22 +47,9 @@ def search_matches():
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
     try:
-        expansion = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": EXPANSION_SYSTEM_PROMPT},
-                {"role": "user", "content": query},
-            ],
-            temperature=0.3,
-        )
-        expanded = expansion.choices[0].message.content.strip()
-    except Exception as exc:
-        return jsonify({"error": f"OpenAI expansion failed: {exc}"}), 500
-
-    try:
         embedding_resp = openai_client.embeddings.create(
             model="text-embedding-3-small",
-            input=expanded,
+            input=query,
         )
         query_vec = embedding_resp.data[0].embedding
     except Exception as exc:
@@ -97,32 +79,42 @@ def search_matches():
 
     bucket_index = build_bucket_index(sb)
 
-    not_interested = set()
+    excluded = set()
     req_email = (body.get("email") or "").strip().lower()
     if req_email:
         try:
-            us_resp = sb.table("user_state").select("not_interested").eq("northeastern_email", req_email).execute()
+            us_resp = (
+                sb.table("user_state")
+                .select("not_interested,pending,completed")
+                .eq("northeastern_email", req_email)
+                .execute()
+            )
             if us_resp.data:
-                ni_raw = us_resp.data[0].get("not_interested") or ""
-                not_interested = {e.strip().lower() for e in ni_raw.split(",") if e.strip()}
+                excluded = excluded_emails_from_user_state_row(us_resp.data[0])
         except Exception:
             pass
 
-    leaked_not_interested_count = 0
+    leaked_excluded_count = 0
     scores = []
     for row in all_rows:
         row_email = str(row.get("northeastern_email", "")).lower()
-        if row_email in not_interested:
-            leaked_not_interested_count += 1
+        if row_email in excluded:
+            leaked_excluded_count += 1
             continue
         if should_hide_alef_2026_classmate(viewer_tamid, row.get("tamid_class")):
+            continue
+        if should_exclude_from_match_pool(row):
             continue
         raw = row.get("professional_embedding")
         vec = parse_embedding(raw) if raw is not None else None
         if vec is None:
             continue
         score = dot_product(query_vec, vec)
-        profile = {k: v for k, v in row.items() if k not in ("professional_embedding", "picture") and v is not None}
+        profile = {
+            k: v
+            for k, v in row.items()
+            if k not in ("professional_embedding", "picture", "is_graduated", "is_active") and v is not None
+        }
         profile["score"] = round(score, 4)
         url = photo_url(row, bucket_index)
         if url:
@@ -140,11 +132,11 @@ def search_matches():
                         "runId": "post-fix",
                         "hypothesisId": "H3",
                         "location": "backend/routes/match_custom.py:134",
-                        "message": "Search not_interested telemetry",
+                        "message": "Search excluded (ni+pending+completed) telemetry",
                         "data": {
                             "reqEmail": req_email,
-                            "notInterestedCount": len(not_interested),
-                            "leakedNotInterestedCount": leaked_not_interested_count,
+                            "excludedCount": len(excluded),
+                            "leakedExcludedCount": leaked_excluded_count,
                             "scoresCount": len(scores),
                         },
                         "timestamp": int(time.time() * 1000),
@@ -160,6 +152,5 @@ def search_matches():
 
     return jsonify({
         "query": query,
-        "expanded": expanded,
         "matches": scores[:limit],
     })

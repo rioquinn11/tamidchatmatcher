@@ -8,12 +8,14 @@ from .helpers import (
     dot_product,
     parse_embedding,
     should_hide_alef_2026_classmate,
+    excluded_emails_from_user_state_row,
+    should_exclude_from_match_pool,
 )
 from .photos import build_bucket_index, photo_url
 
 introductions_bp = Blueprint("introductions", __name__)
 
-SELECT_COLUMNS = ",".join(DISPLAY_COLUMNS + ["embedding", "picture"])
+SELECT_COLUMNS = ",".join(DISPLAY_COLUMNS + ["embedding", "picture", "is_graduated", "is_active"])
 
 
 @introductions_bp.get("/", strict_slashes=False)
@@ -58,27 +60,37 @@ def get_matches():
     target_vec = parse_embedding(target_row["embedding"])
     bucket_index = build_bucket_index(sb)
 
-    not_interested = set()
+    excluded = set()
     try:
-        us_resp = sb.table("user_state").select("not_interested").eq("northeastern_email", email).execute()
+        us_resp = (
+            sb.table("user_state")
+            .select("not_interested,pending,completed")
+            .eq("northeastern_email", email)
+            .execute()
+        )
         if us_resp.data:
-            ni_raw = us_resp.data[0].get("not_interested") or ""
-            not_interested = {e.strip().lower() for e in ni_raw.split(",") if e.strip()}
+            excluded = excluded_emails_from_user_state_row(us_resp.data[0])
     except Exception:
         pass
 
     matches = []
     for row in rows:
         row_email = str(row.get("northeastern_email", "")).lower()
-        if row_email == email or row_email in not_interested:
+        if row_email == email or row_email in excluded:
             continue
         if should_hide_alef_2026_classmate(
             target_row.get("tamid_class"), row.get("tamid_class")
         ):
             continue
+        if should_exclude_from_match_pool(row):
+            continue
         vec = parse_embedding(row["embedding"])
         score = dot_product(target_vec, vec)
-        profile = {k: v for k, v in row.items() if k not in ("embedding", "picture") and v is not None}
+        profile = {
+            k: v
+            for k, v in row.items()
+            if k not in ("embedding", "picture", "is_graduated", "is_active") and v is not None
+        }
         profile["score"] = round(score, 4)
         url = photo_url(row, bucket_index)
         if url:

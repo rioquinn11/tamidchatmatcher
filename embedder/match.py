@@ -13,7 +13,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-TARGET = "Dang Nguyen"
+TARGET = "Rio Quinn"
 
 
 
@@ -27,7 +27,7 @@ def weights(a: list[float], b: list[float]) -> float:
 
 
 def main():
-    response = supabase.table("profiles").select("name, embedding").execute()
+    response = supabase.table("combined").select("name, embedding").execute()
     rows = response.data
 
     if not rows:

@@ -46,10 +46,51 @@ DISPLAY_COLUMNS = [
 
 
 def dot_product(a: list[float], b: list[float]) -> float:
-    return sum(x * y for x, y in zip(a, b))
+    return sum((x * y) for x, y in zip(a, b))
 
 
 def parse_embedding(raw):
     if isinstance(raw, str):
         return json.loads(raw)
     return raw
+
+
+def parse_csv_emails(text) -> set[str]:
+    """Lowercase emails from a comma-separated user_state column."""
+    if not text:
+        return set()
+    return {e.strip().lower() for e in str(text).split(",") if e.strip()}
+
+
+def excluded_emails_from_user_state_row(row: dict | None) -> set[str]:
+    """People the viewer should not see in matches: not_interested ∪ pending ∪ completed."""
+    if not row:
+        return set()
+    out: set[str] = set()
+    for key in ("not_interested", "pending", "completed"):
+        out |= parse_csv_emails(row.get(key))
+    return out
+
+
+def is_graduated_truthy(row: dict) -> bool:
+    """Aligned with embedder/embed_professional.py — truthy means exclude from matching pool."""
+    v = row.get("is_graduated")
+    if v is True or v == 1:
+        return True
+    if isinstance(v, str) and v.strip().lower() in ("true", "t", "1", "yes"):
+        return True
+    return False
+
+
+def is_active_explicitly_false(row: dict) -> bool:
+    """Exclude when is_active is explicitly false; None/unknown stays eligible."""
+    v = row.get("is_active")
+    if v is False or v == 0:
+        return True
+    if isinstance(v, str) and v.strip().lower() in ("false", "f", "0", "no", "n"):
+        return True
+    return False
+
+
+def should_exclude_from_match_pool(row: dict) -> bool:
+    return is_graduated_truthy(row) or is_active_explicitly_false(row)

@@ -39,7 +39,8 @@ PAGE_SIZE = 500
 DRY_RUN = False
 
 COLUMN_TEMPLATES: dict[str, str] = {
-    "major":                     "This members's major is {}",
+    "name":                      "This member's name is {}.",
+    "major":                     "Their major is {}",
     "minor":                     "and their minor is {}.",
     "industry":                  "They are primarily involved in the {} industry.",
     "company_name":              "They have worked at {} as a job/internship.",
