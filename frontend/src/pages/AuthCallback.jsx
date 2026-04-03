@@ -10,17 +10,16 @@ export default function AuthCallback() {
     if (handled.current) return;
     handled.current = true;
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         localStorage.setItem('token', session.access_token);
         navigate('/matches', { replace: true });
-        return;
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        navigate('/login', { replace: true });
       }
-      if (error) {
-        console.error('Auth callback error:', error.message);
-      }
-      navigate('/login', { replace: true });
     });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   return (
