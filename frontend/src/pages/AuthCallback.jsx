@@ -1,15 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const handled = useRef(false);
 
   useEffect(() => {
-    if (handled.current) return;
-    handled.current = true;
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         localStorage.setItem('token', session.access_token);
