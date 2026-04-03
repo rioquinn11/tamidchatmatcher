@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Login from './pages/Login';
+import VerifyOtp from './pages/VerifyOtp';
 import AuthCallback from './pages/AuthCallback';
 import MatchDiscovery from './pages/MatchDiscovery';
 import Leaderboard from './pages/Leaderboard';
@@ -33,6 +34,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route
           path="/matches"
