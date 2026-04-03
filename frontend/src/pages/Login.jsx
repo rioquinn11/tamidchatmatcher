@@ -34,6 +34,18 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
+      const { data: tamidRows, error: lookupError } = await supabase
+        .from('tamid_emails')
+        .select('northeastern_email')
+        .eq('northeastern_email', email)
+        .limit(1);
+
+      if (lookupError || !tamidRows || tamidRows.length === 0) {
+        setError("User's email is not in TAMID database.");
+        setLoading(false);
+        return;
+      }
+
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: true },
