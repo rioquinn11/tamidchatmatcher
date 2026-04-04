@@ -626,7 +626,7 @@ export default function MatchDiscovery() {
 
         <div className="flex items-center gap-2.5">
           <img src="/assets/logo.png" alt="" className="h-7 w-7" />
-          <span className="text-base font-bold tracking-[-0.01em] text-[#2E323A]">Tamid Group</span>
+          <span className="text-base font-bold tracking-[-0.01em] text-[#2E323A]">TAMID Group</span>
         </div>
       </nav>
 

@@ -93,7 +93,7 @@ export default function VerifyOtp() {
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] max-w-[1200px] items-center justify-center">
         <section className="w-full max-w-[440px] rounded-xl border border-[#F2F4F8] bg-white px-8 pb-10 pt-10 shadow-[0_12px_40px_rgba(15,38,72,0.08)] sm:px-11">
           <header className="mb-6 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#C0C5CE]">Tamid Group</p>
+            <p className="text-[11px] font-semibold tracking-[0.15em] text-[#C0C5CE]">TAMID Group</p>
             <h1 className="mt-2 text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">
               Check your email
             </h1>
