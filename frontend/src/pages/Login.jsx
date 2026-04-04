@@ -85,7 +85,7 @@ export default function Login() {
           <header className="mb-6 text-center">
             
             <h1 className="mt-2 text-2xl font-bold tracking-[-0.02em] text-[#2E323A]">
-              Tamid Chat Matcher
+              TAMID Chat Matcher
             </h1>
             
           </header>
